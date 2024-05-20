@@ -22,7 +22,7 @@ from python_weather import Kind
 if TYPE_CHECKING:
     from python_weather.forecast import Forecast  # type: ignore
 
-GAME_OPTIONS = ["animal-crossing", "wild-world", "new-leaf", "new-horizons", "random"]
+GAME_OPTIONS = ["animal-crossing", "wild-world", "new-leaf", "new-horizons"]
 HOUR_OPTIONS = [f"{i}{j}" for i in range(1, 13) for j in ["am", "pm"]]
 WEATHER_OPTIONS = ["sunny", "raining", "snowing"]
 
@@ -78,7 +78,9 @@ def load_loop_times() -> dict:
 
 
 @click.command(context_settings={"auto_envvar_prefix": "KKJUKEBOX"})
-@click.option("-g", "--game", type=Choice(GAME_OPTIONS), default="new-horizons")
+@click.option(
+    "-g", "--game", type=Choice(GAME_OPTIONS + ["random"]), default="new-horizons"
+)
 @click.option(
     "-h", "--hour", type=Choice(HOUR_OPTIONS + ["now", "random"]), default="now"
 )
