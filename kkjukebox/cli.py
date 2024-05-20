@@ -5,7 +5,6 @@ os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
 import datetime
 import json
 import random
-import shutil
 import time
 from importlib.resources import as_file, files
 from pathlib import Path
@@ -15,7 +14,6 @@ import pygame
 from pydub import AudioSegment  # type: ignore
 
 GAME_CHOICES = ["animal-crossing", "wild-world", "new-leaf", "new-horizons"]
-# HOUR_CHOICES = [str(i) for i in range(24)] + ["now"]
 HOUR_CHOICES = [f"{i}{j}" for i in range(1, 13) for j in ["am", "pm"]] + ["now"]
 WEATHER_CHOICES = ["sunny", "raining", "snowing"]
 
