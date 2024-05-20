@@ -21,11 +21,13 @@ WEATHER_CHOICES = ["sunny", "raining", "snowing"]
 
 MUSIC_DIR = "music"
 
+
 def load_loop_times() -> dict:
     filename = "loop_times.json"
     with as_file(files("kkjukebox.resources").joinpath(filename)) as path:
         with open(path, "rb") as f:
             return json.load(f)
+
 
 @click.command(context_settings={"auto_envvar_prefix": "KKJUKEBOX"})
 @click.option("-g", "--game", type=click.Choice(GAME_CHOICES), default="new-horizons")
