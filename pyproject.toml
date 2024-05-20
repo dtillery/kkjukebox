@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "kkjukebox"
+version = "0.1.0"
+description = ""
+authors = ["David Tillery <djtillery@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+click = "^8.1.7"
+pygame = "^2.5.2"
+pydub = "^0.25.1"
+
+[tool.poetry.group.dev.dependencies]
+mypy = "^1.10.0"
+isort = "^5.13.2"
+pre-commit = "^3.7.1"
+black = "^24.4.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
