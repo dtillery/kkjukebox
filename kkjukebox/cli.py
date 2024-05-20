@@ -2,22 +2,72 @@ import os
 
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
 
+import asyncio
 import datetime
 import json
 import random
 import time
 from importlib.resources import as_file, files
 from pathlib import Path
+from typing import TYPE_CHECKING, Optional
 
 import click
+import geocoder  # type: ignore
 import pygame
+import python_weather as pw  # type: ignore
+from click import Choice
 from pydub import AudioSegment  # type: ignore
+from python_weather import Kind
 
-GAME_CHOICES = ["animal-crossing", "wild-world", "new-leaf", "new-horizons"]
-HOUR_CHOICES = [f"{i}{j}" for i in range(1, 13) for j in ["am", "pm"]] + ["now"]
-WEATHER_CHOICES = ["sunny", "raining", "snowing"]
+if TYPE_CHECKING:
+    from python_weather.forecast import Forecast  # type: ignore
+
+GAME_OPTIONS = ["animal-crossing", "wild-world", "new-leaf", "new-horizons", "random"]
+HOUR_OPTIONS = [f"{i}{j}" for i in range(1, 13) for j in ["am", "pm"]]
+WEATHER_OPTIONS = ["sunny", "raining", "snowing"]
 
 MUSIC_DIR = "music"
+
+KINDS_RAIN = [
+    Kind.HEAVY_RAIN,
+    Kind.HEAVY_SHOWERS,
+    Kind.LIGHT_RAIN,
+    Kind.LIGHT_SHOWERS,
+    Kind.LIGHT_SLEET,
+    Kind.LIGHT_SLEET_SHOWERS,
+    Kind.THUNDERY_HEAVY_RAIN,
+    Kind.THUNDERY_SHOWERS,
+]
+
+KINDS_SNOW = [
+    Kind.HEAVY_SNOW,
+    Kind.HEAVY_SNOW_SHOWERS,
+    Kind.LIGHT_SNOW,
+    Kind.LIGHT_SNOW_SHOWERS,
+    Kind.THUNDERY_SNOW_SHOWERS,
+]
+
+
+def get_location() -> str:
+    geo_data = geocoder.ip("me")
+    print(f"Location: {geo_data.json['address']}")
+    return geo_data.json["city"]
+
+
+async def _get_weather_async(location: str) -> "Forecast":
+    async with pw.Client(unit=pw.IMPERIAL) as client:
+        return await client.get(location)
+
+
+def get_weather(location: str) -> str:
+    forecast = asyncio.run(_get_weather_async(location))
+    print(f"Weather in {forecast.location}, {forecast.region}: {forecast.kind}")
+    if forecast.kind in KINDS_RAIN:
+        return "raining"
+    elif forecast.kind in KINDS_SNOW:
+        return "snowing"
+    else:
+        return "sunny"
 
 
 def load_loop_times() -> dict:
@@ -28,19 +78,33 @@ def load_loop_times() -> dict:
 
 
 @click.command(context_settings={"auto_envvar_prefix": "KKJUKEBOX"})
-@click.option("-g", "--game", type=click.Choice(GAME_CHOICES), default="new-horizons")
-@click.option("-h", "--hour", type=click.Choice(HOUR_CHOICES), default="now")
-@click.option("-w", "--weather", type=click.Choice(WEATHER_CHOICES), default="sunny")
+@click.option("-g", "--game", type=Choice(GAME_OPTIONS), default="new-horizons")
+@click.option(
+    "-h", "--hour", type=Choice(HOUR_OPTIONS + ["now", "random"]), default="now"
+)
+@click.option(
+    "-w", "--weather", type=Choice(WEATHER_OPTIONS + ["location"]), default="location"
+)
+@click.option("-l", "--location", type=str, default="local")
 @click.option("--force-cut", is_flag=True)
 @click.option("-p", "--play", is_flag=True)
-def cli(game: str, hour: str, weather: str, force_cut: bool, play: bool):
+def cli(game: str, hour: str, weather: str, location: str, force_cut: bool, play: bool):
     hour_12 = hour
     if hour == "now":
         hour_12 = datetime.datetime.now().strftime("%-I%p").lower()
+    elif hour == "random":
+        hour_12 = random.choice(HOUR_OPTIONS)
+
     hour_24 = str(datetime.datetime.strptime(hour_12, "%I%p").hour).zfill(2)
 
     if game == "random":
-        game = random.choice(GAME_CHOICES)
+        game = random.choice(GAME_OPTIONS)
+
+    if location == "local":
+        location = get_location()
+
+    if weather == "location":
+        weather = get_weather(location)
 
     if game == "animal-crossing" and weather == "raining":
         weather = "sunny"
