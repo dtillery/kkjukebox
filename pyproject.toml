@@ -12,6 +12,7 @@ pygame = "^2.5.2"
 pydub = "^0.25.1"
 geocoder = "^1.38.1"
 python-weather = "^2.0.3"
+rich-click = "^1.8.2"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.10.0"

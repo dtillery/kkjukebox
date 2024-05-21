@@ -18,6 +18,7 @@ import python_weather as pw  # type: ignore
 from click import Choice
 from pydub import AudioSegment  # type: ignore
 from python_weather import Kind
+from rich_click import RichCommand
 
 if TYPE_CHECKING:
     from python_weather.forecast import Forecast  # type: ignore
@@ -77,20 +78,25 @@ def load_loop_times() -> dict:
             return json.load(f)
 
 
-@click.command(context_settings={"auto_envvar_prefix": "KKJUKEBOX"})
-@click.option(
-    "-g", "--game", type=Choice(GAME_OPTIONS + ["random"]), default="new-horizons"
-)
-@click.option(
-    "-h", "--hour", type=Choice(HOUR_OPTIONS + ["now", "random"]), default="now"
-)
-@click.option(
-    "-w", "--weather", type=Choice(WEATHER_OPTIONS + ["location"]), default="location"
-)
-@click.option("-l", "--location", type=str, default="local")
-@click.option("--force-cut", is_flag=True)
-@click.option("-p", "--play", is_flag=True)
-def cli(game: str, hour: str, weather: str, location: str, force_cut: bool, play: bool):
+def play_kk(show_type: str):
+    kk_music_dir = Path(f"{MUSIC_DIR}/kk/{show_type}")
+    music_paths = [p for p in kk_music_dir.iterdir() if p.name.endswith("ogg")]
+    pygame.mixer.init()
+    try:
+        while True:
+            if not pygame.mixer.music.get_busy():
+                next_up = random.choice(music_paths)
+                print(f"Now Playing: {next_up.name}")
+                pygame.mixer.music.load(str(next_up))
+                pygame.mixer.music.play()
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("See ya!")
+        pygame.mixer.music.fadeout(2000)
+        time.sleep(2)
+
+
+def play_hour(game: str, hour: str, weather: str, location: str, force_cut: bool):
     hour_12 = hour
     if hour == "now":
         hour_12 = datetime.datetime.now().strftime("%-I%p").lower()
@@ -109,6 +115,7 @@ def cli(game: str, hour: str, weather: str, location: str, force_cut: bool, play
         weather = get_weather(location)
 
     if game == "animal-crossing" and weather == "raining":
+        # todo: add support for singlular raining music.
         weather = "sunny"
 
     game_weather_dir = f"{MUSIC_DIR}/{game}/{weather}"
@@ -156,20 +163,46 @@ def cli(game: str, hour: str, weather: str, location: str, force_cut: bool, play
         )
         hour_loop.export(hour_loop_uri, format="ogg", codec="libvorbis", bitrate="320k")
 
-    if play:
-        print(f"Playing {hour_12} ({game}/{weather})...")
-        pygame.mixer.init()
-        pygame.mixer.music.load(hour_start_uri)
-        pygame.mixer.music.queue(hour_loop_uri, loops=-1)
+    print(f"Playing {hour_12} ({game}/{weather})...")
+    pygame.mixer.init()
+    pygame.mixer.music.load(hour_start_uri)
+    pygame.mixer.music.queue(hour_loop_uri, loops=-1)
 
-        try:
-            pygame.mixer.music.play(fade_ms=5000)
-            while True:
-                time.sleep(5)
-        except KeyboardInterrupt:
-            print("Bye!")
-            pygame.mixer.music.fadeout(2000)
-            time.sleep(2)
+    try:
+        pygame.mixer.music.play(fade_ms=5000)
+        while True:
+            time.sleep(5)
+    except KeyboardInterrupt:
+        print("Bye!")
+        pygame.mixer.music.fadeout(2000)
+        time.sleep(2)
+
+
+@click.command(cls=RichCommand, context_settings={"auto_envvar_prefix": "KKJUKEBOX"})
+@click.option(
+    "-g", "--game", type=Choice(GAME_OPTIONS + ["random"]), default="new-horizons"
+)
+@click.option(
+    "-h", "--hour", type=Choice(HOUR_OPTIONS + ["now", "random"]), default="now"
+)
+@click.option(
+    "-w", "--weather", type=Choice(WEATHER_OPTIONS + ["location"]), default="location"
+)
+@click.option("-l", "--location", type=str, default="local")
+@click.option("--force-cut", is_flag=True)
+@click.option("-kk", "kk_type", type=Choice(["live", "aircheck"]), default=None)
+def cli(
+    game: str,
+    hour: str,
+    weather: str,
+    location: str,
+    force_cut: bool,
+    kk_type: Optional[str],
+):
+    if kk_type:
+        play_kk(kk_type)
+    else:
+        play_hour(game, hour, weather, location, force_cut)
 
 
 if __name__ == "__main__":
