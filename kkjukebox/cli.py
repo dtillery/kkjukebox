@@ -55,13 +55,16 @@ def get_location() -> str:
     return geo_data.json["city"]
 
 
-async def _get_weather_async(location: str) -> "Forecast":
-    async with pw.Client(unit=pw.IMPERIAL) as client:
-        return await client.get(location)
+async def get_weather(location: str) -> str:
+    forecast: "Forecast" = None
+    try:
+        async with asyncio.timeout(5):
+            async with pw.Client(unit=pw.IMPERIAL) as client:
+                forecast = await client.get(location)
+    except Exception as e:
+        print(f"Error retrieving forecast ({type(e).__name__}); going with sunny")
+        return "sunny"
 
-
-def get_weather(location: str) -> str:
-    forecast = asyncio.run(_get_weather_async(location))
     print(f"Weather in {forecast.location}, {forecast.region}: {forecast.kind}")
     if forecast.kind in KINDS_RAIN:
         return "raining"
@@ -78,7 +81,7 @@ def load_loop_times() -> dict:
             return json.load(f)
 
 
-def play_kk(show_type: str):
+async def play_kk(show_type: str):
     kk_music_dir = Path(f"{MUSIC_DIR}/kk/{show_type}")
     music_paths = [p for p in kk_music_dir.iterdir() if p.name.endswith("ogg")]
     pygame.mixer.init()
@@ -89,14 +92,14 @@ def play_kk(show_type: str):
                 print(f"Now Playing: {next_up.name}")
                 pygame.mixer.music.load(str(next_up))
                 pygame.mixer.music.play()
-            time.sleep(1)
+            await asyncio.sleep(1)
     except KeyboardInterrupt:
         print("See ya!")
         pygame.mixer.music.fadeout(2000)
-        time.sleep(2)
+        await asyncio.sleep(2)
 
 
-def play_hour(game: str, hour: str, weather: str, location: str, force_cut: bool):
+async def play_hour(game: str, hour: str, weather: str, location: str, force_cut: bool):
     hour_12 = hour
     if hour == "now":
         hour_12 = datetime.datetime.now().strftime("%-I%p").lower()
@@ -112,7 +115,7 @@ def play_hour(game: str, hour: str, weather: str, location: str, force_cut: bool
         location = get_location()
 
     if weather == "location":
-        weather = get_weather(location)
+        weather = await get_weather(location)
 
     if game == "animal-crossing" and weather == "raining":
         # todo: add support for singlular raining music.
@@ -169,13 +172,13 @@ def play_hour(game: str, hour: str, weather: str, location: str, force_cut: bool
     pygame.mixer.music.queue(hour_loop_uri, loops=-1)
 
     try:
-        pygame.mixer.music.play(fade_ms=5000)
+        pygame.mixer.music.play(fade_ms=2000)
         while True:
-            time.sleep(5)
+            await asyncio.sleep(5)
     except KeyboardInterrupt:
         print("Bye!")
         pygame.mixer.music.fadeout(2000)
-        time.sleep(2)
+        await asyncio.sleep(2)
 
 
 @click.command(cls=RichCommand, context_settings={"auto_envvar_prefix": "KKJUKEBOX"})
@@ -200,9 +203,9 @@ def cli(
     kk_type: Optional[str],
 ):
     if kk_type:
-        play_kk(kk_type)
+        asyncio.run(play_kk(kk_type))
     else:
-        play_hour(game, hour, weather, location, force_cut)
+        asyncio.run(play_hour(game, hour, weather, location, force_cut))
 
 
 if __name__ == "__main__":
