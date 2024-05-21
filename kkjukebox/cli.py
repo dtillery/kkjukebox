@@ -71,7 +71,9 @@ async def get_weather(location: str) -> str:
         )
         return WEATHER_SUNNY
 
-    print(f"Weather in {forecast.location}, {forecast.region}: {forecast.kind}")
+    print(
+        f"{forecast.kind.emoji}  Weather in {forecast.location}, {forecast.region}: {forecast.kind}! {forecast.kind.emoji}"
+    )
     if forecast.kind in KINDS_RAIN:
         return WEATHER_RAINY
     elif forecast.kind in KINDS_SNOW:
@@ -112,8 +114,6 @@ async def play_hour(game: str, hour: str, weather: str, location: str, force_cut
     elif hour == "random":
         hour_12 = random.choice(HOUR_OPTIONS)
 
-    hour_24 = str(datetime.datetime.strptime(hour_12, "%I%p").hour).zfill(2)
-
     if game == "random":
         game = random.choice(GAME_OPTIONS)
 
@@ -124,8 +124,10 @@ async def play_hour(game: str, hour: str, weather: str, location: str, force_cut
         weather = await get_weather(location)
 
     if game == "animal-crossing" and weather == WEATHER_RAINY:
-        # todo: add support for singlular raining music.
-        weather = WEATHER_SUNNY
+        # single rain song, saved as 12am
+        hour_12 = "12am"
+
+    hour_24 = str(datetime.datetime.strptime(hour_12, "%I%p").hour).zfill(2)
 
     game_weather_dir = f"{MUSIC_DIR}/{game}/{weather}"
     hour_track_files = [
