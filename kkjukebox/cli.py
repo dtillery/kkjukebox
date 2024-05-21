@@ -25,7 +25,11 @@ if TYPE_CHECKING:
 
 GAME_OPTIONS = ["animal-crossing", "wild-world", "new-leaf", "new-horizons"]
 HOUR_OPTIONS = [f"{i}{j}" for i in range(1, 13) for j in ["am", "pm"]]
-WEATHER_OPTIONS = ["sunny", "raining", "snowing"]
+
+WEATHER_SUNNY = "sunny"
+WEATHER_RAINY = "raining"
+WEATHER_SNOWY = "snowing"
+WEATHER_OPTIONS = [WEATHER_SUNNY, WEATHER_RAINY, WEATHER_SNOWY]
 
 MUSIC_DIR = "music"
 
@@ -62,16 +66,18 @@ async def get_weather(location: str) -> str:
             async with pw.Client(unit=pw.IMPERIAL) as client:
                 forecast = await client.get(location)
     except Exception as e:
-        print(f"Error retrieving forecast ({type(e).__name__}); going with sunny")
-        return "sunny"
+        print(
+            f"Error retrieving forecast ({type(e).__name__}); going with {WEATHER_SUNNY}"
+        )
+        return WEATHER_SUNNY
 
     print(f"Weather in {forecast.location}, {forecast.region}: {forecast.kind}")
     if forecast.kind in KINDS_RAIN:
-        return "raining"
+        return WEATHER_RAINY
     elif forecast.kind in KINDS_SNOW:
-        return "snowing"
+        return WEATHER_SNOWY
     else:
-        return "sunny"
+        return WEATHER_SUNNY
 
 
 def load_loop_times() -> dict:
@@ -117,9 +123,9 @@ async def play_hour(game: str, hour: str, weather: str, location: str, force_cut
     if weather == "location":
         weather = await get_weather(location)
 
-    if game == "animal-crossing" and weather == "raining":
+    if game == "animal-crossing" and weather == WEATHER_RAINY:
         # todo: add support for singlular raining music.
-        weather = "sunny"
+        weather = WEATHER_SUNNY
 
     game_weather_dir = f"{MUSIC_DIR}/{game}/{weather}"
     hour_track_files = [
