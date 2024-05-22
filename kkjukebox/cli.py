@@ -19,7 +19,7 @@ import python_weather as pw  # type: ignore
 from click import Choice, argument, group, option
 from pydub import AudioSegment  # type: ignore
 from python_weather import Kind
-from rich_click import RichCommand
+from rich_click import RichCommand, RichGroup
 
 if TYPE_CHECKING:
     from python_weather.forecast import Forecast  # type: ignore
@@ -181,10 +181,16 @@ async def play_kk(show_type: str, song_name: Optional[str]):
 
 
 def make_hour_loops(game: str, weather: str, hour_12: str) -> tuple[str, str]:
+    hours_filetype = "ogg"
+    if game == "animal-crossing" and weather == WEATHER_RAINY:
+        # single rain song, saved as 12am
+        hour_12 = "12am"
+        hours_filetype = "mp3"
+
     hour_24 = str(datetime.datetime.strptime(hour_12, "%I%p").hour).zfill(2)
     loop_times = load_json_resource("hour_loop_times.json")
     song_loop_time = loop_times[game][weather][hour_24]
-    hour_song_filepath = f"{MUSIC_DIR}/{game}/{weather}/{hour_12}.ogg"
+    hour_song_filepath = f"{MUSIC_DIR}/{game}/{weather}/{hour_12}.{hours_filetype}"
     return make_loop(hour_song_filepath, song_loop_time)
 
 
@@ -195,40 +201,50 @@ async def play_hour(game: str, hour: str, weather: str, location: str, force_cut
     elif hour == "random":
         hour_12 = random.choice(HOUR_OPTIONS)
 
-    if game == "random":
-        game = random.choice(GAME_OPTIONS)
-
     if location == "local":
         location = get_location()
 
-    if weather == "location":
-        weather = await get_weather(location)
-
-    if game == "animal-crossing" and weather == WEATHER_RAINY:
-        # single rain song, saved as 12am
-        hour_12 = "12am"
-
-    hour_start_filepath, hour_loop_filepath = make_hour_loops(game, weather, hour_12)
-
-    print(hour_start_filepath)
-    print(hour_loop_filepath)
-    print(f"Playing {hour_12} ({game}/{weather})!")
     pygame.mixer.init()
-    pygame.mixer.music.load(hour_start_filepath)
-    pygame.mixer.music.queue(hour_loop_filepath, loops=-1)
-
-    pygame.mixer.music.play()
     while True:
+        now = datetime.datetime.now()
+        one_hour = datetime.timedelta(hours=1)
+        next_hour = now.replace(microsecond=0, second=0, minute=0) + one_hour
+        # print(f"Time until next hour: {(next_hour - now).total_seconds()}")
+        if (next_hour - now).total_seconds() < 10.0:
+            hour_12 = next_hour.strftime("%-I%p").lower()
+            await end(10)
+            await asyncio.sleep(1)
+
+        if not pygame.mixer.music.get_busy():
+            curr_game = game
+            if game == "random":
+                curr_game = random.choice(GAME_OPTIONS)
+
+            curr_weather = weather
+            if weather == "location":
+                curr_weather = await get_weather(location)
+
+            hour_start_filepath, hour_loop_filepath = make_hour_loops(
+                curr_game, curr_weather, hour_12
+            )
+            print(f"Playing {hour_12} ({game}/{weather})!")
+            pygame.mixer.music.load(hour_start_filepath)
+            pygame.mixer.music.queue(hour_loop_filepath, loops=-1)
+            pygame.mixer.music.play()
+
         await asyncio.sleep(5)
 
 
-async def end() -> None:
-    pygame.mixer.music.fadeout(2000)
-    await asyncio.sleep(2)
+async def end(fadeout_secs: int = 2) -> None:
+    pygame.mixer.music.fadeout(fadeout_secs * 1000)
+    await asyncio.sleep(fadeout_secs)
 
 
-@group(context_settings={"auto_envvar_prefix": "KKJUKEBOX"})
+@group(cls=RichGroup, context_settings={"auto_envvar_prefix": "KKJUKEBOX"})
 def cli() -> None:
+    """
+    Play music from your favorite Animal Crossing games.
+    """
     pass
 
 
@@ -236,7 +252,9 @@ def cli() -> None:
 @argument("play_type", type=Choice(["live", "aircheck", "musicbox"]))
 @argument("song_name", type=str, default=None)
 def kk(play_type: str, song_name: Optional[str]):
-
+    """
+    Play music from KK Slider.
+    """
     try:
         asyncio.run(play_kk(play_type, song_name))
     except KeyboardInterrupt:
@@ -251,7 +269,7 @@ def kk(play_type: str, song_name: Optional[str]):
     "-w", "--weather", type=Choice(WEATHER_OPTIONS + ["location"]), default="location"
 )
 @option("-l", "--location", type=str, default="local")
-@option("--force-cut", is_flag=True)
+@option("--force-cut", is_flag=True, help="Cut loop sample even if they already exist.")
 def hourly(
     game: str,
     hour: str,
@@ -259,6 +277,9 @@ def hourly(
     location: str,
     force_cut: bool,
 ):
+    """
+    Play seamlessly-looping hourly music.
+    """
     try:
         asyncio.run(play_hour(game, hour, weather, location, force_cut))
     except KeyboardInterrupt:
