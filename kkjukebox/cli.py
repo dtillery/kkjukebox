@@ -6,6 +6,7 @@ import asyncio
 import datetime
 import json
 import random
+import re
 import time
 from importlib.resources import as_file, files
 from pathlib import Path
@@ -138,6 +139,15 @@ def make_kk_loops(show_type: str, song_name: Optional[str]) -> tuple[str, str]:
     return make_loop(kk_song_filepath, song_loop_time)
 
 
+def get_complete_song_name(song_name: str, all_song_names: list[str]) -> Optional[str]:
+    pattern = re.compile("[^a-zA-Z]")
+    given_stripped = pattern.sub("", song_name).lower()
+    for s in all_song_names:
+        if given_stripped in pattern.sub("", s).lower():
+            return s
+    return None
+
+
 async def play_kk(show_type: str, song_name: Optional[str]):
     kk_music_dir = Path(f"{MUSIC_DIR}/kk/{show_type}")
     music_paths = [p for p in kk_music_dir.iterdir()]
@@ -151,12 +161,21 @@ async def play_kk(show_type: str, song_name: Optional[str]):
                 pygame.mixer.music.play()
             await asyncio.sleep(1)
     else:
-        song_start_filepath, song_loop_filepath = make_kk_loops(show_type, song_name)
+        song_names = [f.stem for f in music_paths]
+        if song_name:
+            full_song_name = get_complete_song_name(song_name, song_names)
+            if not full_song_name:
+                raise ValueError(f'No song found that matches "{song_name}')
+        else:
+            full_song_name = random.choice(song_names)
+        song_start_filepath, song_loop_filepath = make_kk_loops(
+            show_type, full_song_name
+        )
         pygame.mixer.music.load(song_start_filepath)
         pygame.mixer.music.queue(song_loop_filepath, loops=-1)
 
-        print(f"Now Playing: {song_name} ({show_type})!")
-        pygame.mixer.music.play(fade_ms=2000)
+        print(f"Now Playing: {full_song_name} ({show_type})!")
+        pygame.mixer.music.play()
         while True:
             await asyncio.sleep(5)
 
@@ -198,7 +217,7 @@ async def play_hour(game: str, hour: str, weather: str, location: str, force_cut
     pygame.mixer.music.load(hour_start_filepath)
     pygame.mixer.music.queue(hour_loop_filepath, loops=-1)
 
-    pygame.mixer.music.play(fade_ms=2000)
+    pygame.mixer.music.play()
     while True:
         await asyncio.sleep(5)
 
