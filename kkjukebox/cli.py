@@ -15,7 +15,7 @@ import click
 import geocoder  # type: ignore
 import pygame
 import python_weather as pw  # type: ignore
-from click import Choice
+from click import Choice, argument, group, option
 from pydub import AudioSegment  # type: ignore
 from python_weather import Kind
 from rich_click import RichCommand
@@ -82,29 +82,91 @@ async def get_weather(location: str) -> str:
         return WEATHER_SUNNY
 
 
-def load_loop_times() -> dict:
-    filename = "loop_times.json"
-    with as_file(files("kkjukebox.resources").joinpath(filename)) as path:
+def make_loop(
+    song_filepath: str, loop_timing: dict[str, str], force_cut: bool = False
+) -> tuple[str, str]:
+    p = Path(song_filepath)
+    if not p.is_file():
+        raise FileNotFoundError(f"No file at {song_filepath}")
+
+    filetype = p.suffix.strip(".")
+    loops_dir = f"{p.parent}/loops"
+    start_filename = f"{p.stem}-start.{filetype}"
+    loop_filename = f"{p.stem}-loop.{filetype}"
+    start_filepath = f"{loops_dir}/{start_filename}"
+    loop_filepath = f"{loops_dir}/{loop_filename}"
+
+    if (
+        not (Path(start_filepath).is_file() and Path(loop_filepath).is_file())
+        or force_cut
+    ):
+        print("Start and/or Loop files not found. Cutting now...")
+
+        loop_start_ms = float(loop_timing["start"]) * 1000
+        loop_end_ms = float(loop_timing["end"]) * 1000
+
+        original = AudioSegment.from_file(song_filepath)
+
+        print(f"Making start and loop tracks for {song_filepath}")
+        print(f"Original track is {len(original)/1000}s")
+        print(f"Cutting loop from {loop_start_ms/1000} to {loop_end_ms/1000}")
+        start = original[:loop_end_ms]  # type: ignore
+        loop = original[loop_start_ms:loop_end_ms]  # type: ignore
+        print(f"Start file is {len(start)/1000}s")
+        print(f"Loop file is {len(loop)/1000}s")
+
+        try:
+            os.mkdir(loops_dir)
+        except FileExistsError:
+            pass
+
+        start.export(start_filepath, format=filetype, parameters=["-aq", "3"])
+        loop.export(loop_filepath, format=filetype, parameters=["-aq", "3"])
+    return start_filepath, loop_filepath
+
+
+def load_json_resource(resource_filename) -> dict:
+    with as_file(files("kkjukebox.resources").joinpath(resource_filename)) as path:
         with open(path, "rb") as f:
             return json.load(f)
 
 
-async def play_kk(show_type: str):
+def make_kk_loops(show_type: str, song_name: Optional[str]) -> tuple[str, str]:
+    loop_times = load_json_resource("kk_loop_times.json")
+    song_loop_time = loop_times[song_name][show_type]
+    kk_song_filepath = f"{MUSIC_DIR}/kk/{show_type}/{song_name}.mp3"
+    return make_loop(kk_song_filepath, song_loop_time)
+
+
+async def play_kk(show_type: str, song_name: Optional[str]):
     kk_music_dir = Path(f"{MUSIC_DIR}/kk/{show_type}")
-    music_paths = [p for p in kk_music_dir.iterdir() if p.name.endswith("ogg")]
+    music_paths = [p for p in kk_music_dir.iterdir()]
     pygame.mixer.init()
-    try:
+    if show_type == "live":
         while True:
             if not pygame.mixer.music.get_busy():
                 next_up = random.choice(music_paths)
-                print(f"Now Playing: {next_up.name}")
+                print(f"Now Playing: {next_up.name} ({show_type})!")
                 pygame.mixer.music.load(str(next_up))
                 pygame.mixer.music.play()
             await asyncio.sleep(1)
-    except KeyboardInterrupt:
-        print("See ya!")
-        pygame.mixer.music.fadeout(2000)
-        await asyncio.sleep(2)
+    else:
+        song_start_filepath, song_loop_filepath = make_kk_loops(show_type, song_name)
+        pygame.mixer.music.load(song_start_filepath)
+        pygame.mixer.music.queue(song_loop_filepath, loops=-1)
+
+        print(f"Now Playing: {song_name} ({show_type})!")
+        pygame.mixer.music.play(fade_ms=2000)
+        while True:
+            await asyncio.sleep(5)
+
+
+def make_hour_loops(game: str, weather: str, hour_12: str) -> tuple[str, str]:
+    hour_24 = str(datetime.datetime.strptime(hour_12, "%I%p").hour).zfill(2)
+    loop_times = load_json_resource("hour_loop_times.json")
+    song_loop_time = loop_times[game][weather][hour_24]
+    hour_song_filepath = f"{MUSIC_DIR}/{game}/{weather}/{hour_12}.ogg"
+    return make_loop(hour_song_filepath, song_loop_time)
 
 
 async def play_hour(game: str, hour: str, weather: str, location: str, force_cut: bool):
@@ -127,93 +189,62 @@ async def play_hour(game: str, hour: str, weather: str, location: str, force_cut
         # single rain song, saved as 12am
         hour_12 = "12am"
 
-    hour_24 = str(datetime.datetime.strptime(hour_12, "%I%p").hour).zfill(2)
+    hour_start_filepath, hour_loop_filepath = make_hour_loops(game, weather, hour_12)
 
-    game_weather_dir = f"{MUSIC_DIR}/{game}/{weather}"
-    hour_track_files = [
-        f for f in os.listdir(game_weather_dir) if f.startswith(hour_12)
-    ]
-    if len(hour_track_files) > 1:
-        raise Exception(f"More than one hour track file found: {hour_track_files}")
-    hour_track_uri = f"{game_weather_dir}/{hour_track_files[0]}"
-
-    loops_dir = f"{MUSIC_DIR}/{game}/{weather}/loops"
-    hour_start_filename = f"{hour_12}-start.ogg"
-    hour_loop_filename = f"{hour_12}-loop.ogg"
-    hour_start_uri = f"{loops_dir}/{hour_start_filename}"
-    hour_loop_uri = f"{loops_dir}/{hour_loop_filename}"
-
-    if (
-        not (Path(hour_start_uri).is_file() and Path(hour_loop_uri).is_file())
-        or force_cut
-    ):
-        print("Start and/or Loop files not found. Cutting now...")
-        loop_times = load_loop_times()
-
-        hour_loop_timings = loop_times[game][weather][hour_24]
-        loop_start_ms = float(hour_loop_timings["start"]) * 1000
-        loop_end_ms = float(hour_loop_timings["end"]) * 1000
-
-        hour_original = AudioSegment.from_file(hour_track_uri)
-
-        print(f"Making start and loop tracks for Hour {hour_12} ({game}/{weather})")
-        print(f"Original track is {len(hour_original)/1000}s")
-        print(f"Cutting loop from {loop_start_ms/1000} to {loop_end_ms/1000}")
-        hour_start = hour_original[:loop_end_ms]  # type: ignore
-        hour_loop = hour_original[loop_start_ms:loop_end_ms]  # type: ignore
-        print(f"Hour-Start is {len(hour_start)/1000}s")
-        print(f"Hour-Loops is {len(hour_loop)/1000}s")
-
-        try:
-            os.mkdir(loops_dir)
-        except FileExistsError:
-            pass
-
-        hour_start.export(
-            hour_start_uri, format="ogg", codec="libvorbis", bitrate="320k"
-        )
-        hour_loop.export(hour_loop_uri, format="ogg", codec="libvorbis", bitrate="320k")
-
-    print(f"Playing {hour_12} ({game}/{weather})...")
+    print(hour_start_filepath)
+    print(hour_loop_filepath)
+    print(f"Playing {hour_12} ({game}/{weather})!")
     pygame.mixer.init()
-    pygame.mixer.music.load(hour_start_uri)
-    pygame.mixer.music.queue(hour_loop_uri, loops=-1)
+    pygame.mixer.music.load(hour_start_filepath)
+    pygame.mixer.music.queue(hour_loop_filepath, loops=-1)
+
+    pygame.mixer.music.play(fade_ms=2000)
+    while True:
+        await asyncio.sleep(5)
+
+
+async def end() -> None:
+    pygame.mixer.music.fadeout(2000)
+    await asyncio.sleep(2)
+
+
+@group(context_settings={"auto_envvar_prefix": "KKJUKEBOX"})
+def cli() -> None:
+    pass
+
+
+@cli.command(cls=RichCommand)
+@argument("play_type", type=Choice(["live", "aircheck", "musicbox"]))
+@argument("song_name", type=str, default=None)
+def kk(play_type: str, song_name: Optional[str]):
 
     try:
-        pygame.mixer.music.play(fade_ms=2000)
-        while True:
-            await asyncio.sleep(5)
+        asyncio.run(play_kk(play_type, song_name))
     except KeyboardInterrupt:
         print("Bye!")
-        pygame.mixer.music.fadeout(2000)
-        await asyncio.sleep(2)
+        asyncio.run(end())
 
 
-@click.command(cls=RichCommand, context_settings={"auto_envvar_prefix": "KKJUKEBOX"})
-@click.option(
-    "-g", "--game", type=Choice(GAME_OPTIONS + ["random"]), default="new-horizons"
-)
-@click.option(
-    "-h", "--hour", type=Choice(HOUR_OPTIONS + ["now", "random"]), default="now"
-)
-@click.option(
+@cli.command(cls=RichCommand)
+@option("-g", "--game", type=Choice(GAME_OPTIONS + ["random"]), default="new-horizons")
+@option("-h", "--hour", type=Choice(HOUR_OPTIONS + ["now", "random"]), default="now")
+@option(
     "-w", "--weather", type=Choice(WEATHER_OPTIONS + ["location"]), default="location"
 )
-@click.option("-l", "--location", type=str, default="local")
-@click.option("--force-cut", is_flag=True)
-@click.option("-kk", "kk_type", type=Choice(["live", "aircheck"]), default=None)
-def cli(
+@option("-l", "--location", type=str, default="local")
+@option("--force-cut", is_flag=True)
+def hourly(
     game: str,
     hour: str,
     weather: str,
     location: str,
     force_cut: bool,
-    kk_type: Optional[str],
 ):
-    if kk_type:
-        asyncio.run(play_kk(kk_type))
-    else:
+    try:
         asyncio.run(play_hour(game, hour, weather, location, force_cut))
+    except KeyboardInterrupt:
+        print("Bye!")
+        asyncio.run(end())
 
 
 if __name__ == "__main__":
