@@ -4,6 +4,7 @@
 # Project Specific
 /music/
 download_acmusicext.py
+*.bak
 
 # Random Stuff
 /misc/

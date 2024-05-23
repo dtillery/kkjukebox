@@ -21,6 +21,9 @@ from pydub import AudioSegment  # type: ignore
 from python_weather import Kind
 from rich_click import RichCommand, RichGroup
 
+from .song import HourlySong
+from .utils import load_json_resource
+
 if TYPE_CHECKING:
     from python_weather.forecast import Forecast  # type: ignore
 
@@ -126,12 +129,6 @@ def make_loop(
     return start_filepath, loop_filepath
 
 
-def load_json_resource(resource_filename) -> dict:
-    with as_file(files("kkjukebox.resources").joinpath(resource_filename)) as path:
-        with open(path, "rb") as f:
-            return json.load(f)
-
-
 def make_kk_loops(show_type: str, song_name: Optional[str]) -> tuple[str, str]:
     loop_times = load_json_resource("kk_loop_times.json")
     song_loop_time = loop_times[song_name][show_type]
@@ -180,26 +177,14 @@ async def play_kk(show_type: str, song_name: Optional[str]):
             await asyncio.sleep(5)
 
 
-def make_hour_loops(game: str, weather: str, hour_12: str) -> tuple[str, str]:
-    hours_filetype = "ogg"
-    if game == "animal-crossing" and weather == WEATHER_RAINY:
-        # single rain song, saved as 12am
-        hour_12 = "12am"
-        hours_filetype = "mp3"
-
-    hour_24 = str(datetime.datetime.strptime(hour_12, "%I%p").hour).zfill(2)
-    loop_times = load_json_resource("hour_loop_times.json")
-    song_loop_time = loop_times[game][weather][hour_24]
-    hour_song_filepath = f"{MUSIC_DIR}/{game}/{weather}/{hour_12}.{hours_filetype}"
-    return make_loop(hour_song_filepath, song_loop_time)
-
-
 async def play_hour(game: str, hour: str, weather: str, location: str, force_cut: bool):
     hour_12 = hour
     if hour == "now":
         hour_12 = datetime.datetime.now().strftime("%-I%p").lower()
     elif hour == "random":
         hour_12 = random.choice(HOUR_OPTIONS)
+
+    hour_24 = datetime.datetime.strptime(hour_12, "%I%p").hour
 
     if location == "local":
         location = get_location()
@@ -211,7 +196,7 @@ async def play_hour(game: str, hour: str, weather: str, location: str, force_cut
         next_hour = now.replace(microsecond=0, second=0, minute=0) + one_hour
         # print(f"Time until next hour: {(next_hour - now).total_seconds()}")
         if (next_hour - now).total_seconds() < 10.0:
-            hour_12 = next_hour.strftime("%-I%p").lower()
+            hour_24 = next_hour.hour
             await end(10)
             await asyncio.sleep(1)
 
@@ -224,10 +209,9 @@ async def play_hour(game: str, hour: str, weather: str, location: str, force_cut
             if weather == "location":
                 curr_weather = await get_weather(location)
 
-            hour_start_filepath, hour_loop_filepath = make_hour_loops(
-                curr_game, curr_weather, hour_12
-            )
-            print(f"Playing {hour_12} ({game}/{weather})!")
+            h = HourlySong(hour_24, curr_game, curr_weather)
+            hour_start_filepath, hour_loop_filepath = h.make_loop_files()
+            print(f"Playing {h.hour} ({h.game}/{h.weather})!")
             pygame.mixer.music.load(hour_start_filepath)
             pygame.mixer.music.queue(hour_loop_filepath, loops=-1)
             pygame.mixer.music.play()
