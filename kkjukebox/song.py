@@ -8,6 +8,7 @@ from typing import Optional
 from pydub import AudioSegment  # type: ignore
 
 from .utils import load_json_resource
+from .weather import WeatherType
 
 try:
     MUSIC_DIR = os.environ["KKJUKEBOX_MUSIC_DIR"]
@@ -77,16 +78,16 @@ class HourlySong(Song):
 
     hour: int
     game: str
-    weather: str
+    weather: WeatherType
 
-    def __init__(self, hour: int, game: str, weather: str) -> None:
+    def __init__(self, hour: int, game: str, weather: WeatherType | str) -> None:
         if hour <= 0 or hour >= 23:
             raise ValueError(f"Hour must be between 0 and 23")
         self.hour = hour
         self.game = game
-        self.weather = weather
+        self.weather = WeatherType(weather)
 
-        if self.game == "animal-crossing" and self.weather == "raining":
+        if self.game == "animal-crossing" and self.weather == WeatherType.RAINING:
             # dumb hack for single raining track in AC, don't want to dupe files
             self.hour = 0
 

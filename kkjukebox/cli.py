@@ -10,72 +10,21 @@ from typing import TYPE_CHECKING, Optional
 import click
 import geocoder  # type: ignore
 import pygame
-import python_weather as pw  # type: ignore
 from click import Choice, argument, group, option
-from python_weather import Kind
 from rich_click import RichCommand, RichGroup
 
 from .song import HourlySong, KKSong
 from .utils import load_json_resource
-
-if TYPE_CHECKING:
-    from python_weather.forecast import Forecast  # type: ignore
+from .weather import WeatherType, get_weather
 
 GAME_OPTIONS = ["animal-crossing", "wild-world", "new-leaf", "new-horizons"]
 HOUR_OPTIONS = [f"{i}{j}" for i in range(1, 13) for j in ["am", "pm"]]
-
-WEATHER_SUNNY = "sunny"
-WEATHER_RAINY = "raining"
-WEATHER_SNOWY = "snowing"
-WEATHER_OPTIONS = [WEATHER_SUNNY, WEATHER_RAINY, WEATHER_SNOWY]
-
-KINDS_RAIN = [
-    Kind.HEAVY_RAIN,
-    Kind.HEAVY_SHOWERS,
-    Kind.LIGHT_RAIN,
-    Kind.LIGHT_SHOWERS,
-    Kind.LIGHT_SLEET,
-    Kind.LIGHT_SLEET_SHOWERS,
-    Kind.THUNDERY_HEAVY_RAIN,
-    Kind.THUNDERY_SHOWERS,
-]
-
-KINDS_SNOW = [
-    Kind.HEAVY_SNOW,
-    Kind.HEAVY_SNOW_SHOWERS,
-    Kind.LIGHT_SNOW,
-    Kind.LIGHT_SNOW_SHOWERS,
-    Kind.THUNDERY_SNOW_SHOWERS,
-]
 
 
 def get_location() -> str:
     geo_data = geocoder.ip("me")
     print(f"Location: {geo_data.json['address']}")
     return geo_data.json["city"]
-
-
-async def get_weather(location: str) -> str:
-    forecast: "Forecast" = None
-    try:
-        async with asyncio.timeout(5):
-            async with pw.Client(unit=pw.IMPERIAL) as client:
-                forecast = await client.get(location)
-    except Exception as e:
-        print(
-            f"Error retrieving forecast ({type(e).__name__}); going with {WEATHER_SUNNY}"
-        )
-        return WEATHER_SUNNY
-
-    print(
-        f"{forecast.kind.emoji}  Weather in {forecast.location}, {forecast.region}: {forecast.kind}! {forecast.kind.emoji}"
-    )
-    if forecast.kind in KINDS_RAIN:
-        return WEATHER_RAINY
-    elif forecast.kind in KINDS_SNOW:
-        return WEATHER_SNOWY
-    else:
-        return WEATHER_SUNNY
 
 
 async def play_kk(show_type: str, song_name: Optional[str]):
@@ -103,7 +52,9 @@ async def play_kk(show_type: str, song_name: Optional[str]):
             await asyncio.sleep(5)
 
 
-async def play_hour(game: str, hour: str, weather: str, location: str, force_cut: bool):
+async def play_hour(
+    game: str, hour: str, weather: WeatherType | str, location: str, force_cut: bool
+):
     hour_12 = hour
     if hour == "now":
         hour_12 = datetime.datetime.now().strftime("%-I%p").lower()
@@ -137,7 +88,7 @@ async def play_hour(game: str, hour: str, weather: str, location: str, force_cut
 
             h = HourlySong(hour_24, curr_game, curr_weather)
             hour_start_filepath, hour_loop_filepath = h.make_loop_files()
-            print(f"Playing {h.hour} ({h.game}/{h.weather})!")
+            print(f"Playing {h.hour} ({h.game}/{h.weather.value})!")
             pygame.mixer.music.load(hour_start_filepath)
             pygame.mixer.music.queue(hour_loop_filepath, loops=-1)
             pygame.mixer.music.play()
@@ -176,14 +127,14 @@ def kk(play_type: str, song_name: Optional[str]):
 @option("-g", "--game", type=Choice(GAME_OPTIONS + ["random"]), default="new-horizons")
 @option("-h", "--hour", type=Choice(HOUR_OPTIONS + ["now", "random"]), default="now")
 @option(
-    "-w", "--weather", type=Choice(WEATHER_OPTIONS + ["location"]), default="location"
+    "-w", "--weather", type=Choice(list(WeatherType) + ["location"]), default="location"
 )
 @option("-l", "--location", type=str, default="local")
 @option("--force-cut", is_flag=True, help="Cut loop sample even if they already exist.")
 def hourly(
     game: str,
     hour: str,
-    weather: str,
+    weather: WeatherType | str,
     location: str,
     force_cut: bool,
 ):
