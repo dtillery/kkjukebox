@@ -1,6 +1,8 @@
 import datetime
 import os
+import re
 from pathlib import Path
+from typing import Optional
 
 from pydub import AudioSegment  # type: ignore
 
@@ -105,10 +107,52 @@ class HourlySong(Song):
         return str(self.hour).zfill(2)
 
     def make_loop_files(self) -> tuple[str, str]:
-        hours_filetype = "ogg"
         hour_path = self.filepath
         hour_str = self._hour_fill
 
         loop_times = load_json_resource("hour_loop_times.json")
         song_loop_time = loop_times[self.game][self.weather][hour_str]
         return self._make_loop_files(hour_path, song_loop_time)
+
+
+class KKSong(Song):
+
+    base_music_dir: Path = Path(f"{MUSIC_DIR}/kk")
+    name: str
+    play_type: str
+
+    @classmethod
+    def from_fuzzy_name(cls, song_name: str, play_type: str) -> Optional["KKSong"]:
+        song_dir = Path(cls.base_music_dir, play_type)
+        all_song_names = [f.stem for f in song_dir.iterdir()]
+        pattern = re.compile("[^a-zA-Z]")
+        name_squished = pattern.sub("", song_name).lower()
+        for s in all_song_names:
+            if name_squished in pattern.sub("", s).lower():
+                return cls(s, play_type)
+        return None
+
+    def __init__(self, name: str, play_type: str):
+        self.name = name
+        self.play_type = play_type
+
+        song_dir = Path(os.path.join(MUSIC_DIR, "kk", play_type))
+        if not song_dir.is_dir():
+            raise OSError(f'Directory "{song_dir}" not found.')
+
+        matching_songs = [f for f in song_dir.iterdir() if self.name in f.name]
+        if not matching_songs:
+            raise OSError(f'No file found containing "{self.name}"')
+        elif len(matching_songs) > 1:
+            raise OSError(f'Multiple files found for "{self.name}"')
+
+        super().__init__(matching_songs[0])
+
+    @property
+    def is_loopable(self):
+        return self.play_type in ["aircheck", "musicbox"]
+
+    def make_loop_files(self) -> tuple[str, str]:
+        loop_times = load_json_resource("kk_loop_times.json")
+        song_loop_time = loop_times[self.name][self.play_type]
+        return self._make_loop_files(self.filepath, song_loop_time)

@@ -4,12 +4,7 @@ os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
 
 import asyncio
 import datetime
-import json
 import random
-import re
-import time
-from importlib.resources import as_file, files
-from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
 import click
@@ -17,11 +12,10 @@ import geocoder  # type: ignore
 import pygame
 import python_weather as pw  # type: ignore
 from click import Choice, argument, group, option
-from pydub import AudioSegment  # type: ignore
 from python_weather import Kind
 from rich_click import RichCommand, RichGroup
 
-from .song import HourlySong
+from .song import HourlySong, KKSong
 from .utils import load_json_resource
 
 if TYPE_CHECKING:
@@ -34,8 +28,6 @@ WEATHER_SUNNY = "sunny"
 WEATHER_RAINY = "raining"
 WEATHER_SNOWY = "snowing"
 WEATHER_OPTIONS = [WEATHER_SUNNY, WEATHER_RAINY, WEATHER_SNOWY]
-
-MUSIC_DIR = "music"
 
 KINDS_RAIN = [
     Kind.HEAVY_RAIN,
@@ -86,94 +78,25 @@ async def get_weather(location: str) -> str:
         return WEATHER_SUNNY
 
 
-def make_loop(
-    song_filepath: str, loop_timing: dict[str, str], force_cut: bool = False
-) -> tuple[str, str]:
-    p = Path(song_filepath)
-    if not p.is_file():
-        raise FileNotFoundError(f"No file at {song_filepath}")
-
-    filetype = p.suffix.strip(".")
-    loops_dir = f"{p.parent}/loops"
-    start_filename = f"{p.stem}-start.{filetype}"
-    loop_filename = f"{p.stem}-loop.{filetype}"
-    start_filepath = f"{loops_dir}/{start_filename}"
-    loop_filepath = f"{loops_dir}/{loop_filename}"
-
-    if (
-        not (Path(start_filepath).is_file() and Path(loop_filepath).is_file())
-        or force_cut
-    ):
-        print("Start and/or Loop files not found. Cutting now...")
-
-        loop_start_ms = float(loop_timing["start"]) * 1000
-        loop_end_ms = float(loop_timing["end"]) * 1000
-
-        original = AudioSegment.from_file(song_filepath)
-
-        print(f"Making start and loop tracks for {song_filepath}")
-        print(f"Original track is {len(original)/1000}s")
-        print(f"Cutting loop from {loop_start_ms/1000} to {loop_end_ms/1000}")
-        start = original[:loop_end_ms]  # type: ignore
-        loop = original[loop_start_ms:loop_end_ms]  # type: ignore
-        print(f"Start file is {len(start)/1000}s")
-        print(f"Loop file is {len(loop)/1000}s")
-
-        try:
-            os.mkdir(loops_dir)
-        except FileExistsError:
-            pass
-
-        start.export(start_filepath, format=filetype, parameters=["-aq", "3"])
-        loop.export(loop_filepath, format=filetype, parameters=["-aq", "3"])
-    return start_filepath, loop_filepath
-
-
-def make_kk_loops(show_type: str, song_name: Optional[str]) -> tuple[str, str]:
-    loop_times = load_json_resource("kk_loop_times.json")
-    song_loop_time = loop_times[song_name][show_type]
-    kk_song_filepath = f"{MUSIC_DIR}/kk/{show_type}/{song_name}.mp3"
-    return make_loop(kk_song_filepath, song_loop_time)
-
-
-def get_complete_song_name(song_name: str, all_song_names: list[str]) -> Optional[str]:
-    pattern = re.compile("[^a-zA-Z]")
-    given_stripped = pattern.sub("", song_name).lower()
-    for s in all_song_names:
-        if given_stripped in pattern.sub("", s).lower():
-            return s
-    return None
-
-
-async def play_kk(show_type: str, song_name: Optional[str]):
-    kk_music_dir = Path(f"{MUSIC_DIR}/kk/{show_type}")
-    music_paths = [p for p in kk_music_dir.iterdir()]
+async def play_kk(show_type: str, song_name: str):
     pygame.mixer.init()
-    if show_type == "live":
-        while True:
-            if not pygame.mixer.music.get_busy():
-                next_up = random.choice(music_paths)
-                print(f"Now Playing: {next_up.name} ({show_type})!")
-                pygame.mixer.music.load(str(next_up))
-                pygame.mixer.music.play()
-            await asyncio.sleep(1)
-    else:
-        song_names = [f.stem for f in music_paths]
-        if song_name:
-            full_song_name = get_complete_song_name(song_name, song_names)
-            if not full_song_name:
-                raise ValueError(f'No song found that matches "{song_name}')
-        else:
-            full_song_name = random.choice(song_names)
-        song_start_filepath, song_loop_filepath = make_kk_loops(
-            show_type, full_song_name
-        )
+    kk_song = KKSong.from_fuzzy_name(song_name, show_type)
+
+    if not kk_song:
+        raise ValueError(f'No song found that matches "{song_name}')
+    elif kk_song.is_loopable:
+        song_start_filepath, song_loop_filepath = kk_song.make_loop_files()
         pygame.mixer.music.load(song_start_filepath)
         pygame.mixer.music.queue(song_loop_filepath, loops=-1)
-
-        print(f"Now Playing: {full_song_name} ({show_type})!")
+        print(f"Now Playing: {kk_song.name} ({kk_song.play_type})!")
         pygame.mixer.music.play()
         while True:
+            await asyncio.sleep(5)
+    else:
+        print(f"Now Playing: {kk_song.name} ({kk_song.play_type})!")
+        pygame.mixer.music.load(kk_song.filepath)
+        pygame.mixer.music.play()
+        while pygame.mixer.music.get_busy():
             await asyncio.sleep(5)
 
 
@@ -234,8 +157,8 @@ def cli() -> None:
 
 @cli.command(cls=RichCommand)
 @argument("play_type", type=Choice(["live", "aircheck", "musicbox"]))
-@argument("song_name", type=str, default=None)
-def kk(play_type: str, song_name: Optional[str]):
+@argument("song_name", type=str)
+def kk(play_type: str, song_name: str):
     """
     Play music from KK Slider.
     """
