@@ -8,23 +8,17 @@ import random
 from typing import TYPE_CHECKING, Optional
 
 import click
-import geocoder  # type: ignore
 import pygame
 from click import Choice, argument, group, option
 from rich_click import RichCommand, RichGroup
 
+from .location import get_location
 from .song import HourlySong, KKSong
 from .utils import load_json_resource
 from .weather import WeatherType, get_weather
 
 GAME_OPTIONS = ["animal-crossing", "wild-world", "new-leaf", "new-horizons"]
 HOUR_OPTIONS = [f"{i}{j}" for i in range(1, 13) for j in ["am", "pm"]]
-
-
-def get_location() -> str:
-    geo_data = geocoder.ip("me")
-    print(f"Location: {geo_data.json['address']}")
-    return geo_data.json["city"]
 
 
 async def play_kk(show_type: str, song_name: Optional[str]):
