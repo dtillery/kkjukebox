@@ -78,12 +78,15 @@ async def get_weather(location: str) -> str:
         return WEATHER_SUNNY
 
 
-async def play_kk(show_type: str, song_name: str):
+async def play_kk(show_type: str, song_name: Optional[str]):
     pygame.mixer.init()
-    kk_song = KKSong.from_fuzzy_name(song_name, show_type)
+    if song_name:
+        kk_song = KKSong.from_fuzzy_name(song_name, show_type)
+    else:
+        kk_song = KKSong.random(show_type)
 
     if not kk_song:
-        raise ValueError(f'No song found that matches "{song_name}')
+        raise ValueError(f'No song found that matches "{song_name}"')
     elif kk_song.is_loopable:
         song_start_filepath, song_loop_filepath = kk_song.make_loop_files()
         pygame.mixer.music.load(song_start_filepath)
@@ -157,8 +160,8 @@ def cli() -> None:
 
 @cli.command(cls=RichCommand)
 @argument("play_type", type=Choice(["live", "aircheck", "musicbox"]))
-@argument("song_name", type=str)
-def kk(play_type: str, song_name: str):
+@argument("song_name", type=str, required=False, default=None)
+def kk(play_type: str, song_name: Optional[str]):
     """
     Play music from KK Slider.
     """

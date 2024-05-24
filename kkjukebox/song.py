@@ -1,5 +1,6 @@
 import datetime
 import os
+import random
 import re
 from pathlib import Path
 from typing import Optional
@@ -123,14 +124,25 @@ class KKSong(Song):
 
     @classmethod
     def from_fuzzy_name(cls, song_name: str, play_type: str) -> Optional["KKSong"]:
-        song_dir = Path(cls.base_music_dir, play_type)
-        all_song_names = [f.stem for f in song_dir.iterdir()]
+        all_song_names = cls._all_song_names(play_type)
         pattern = re.compile("[^a-zA-Z]")
         name_squished = pattern.sub("", song_name).lower()
         for s in all_song_names:
             if name_squished in pattern.sub("", s).lower():
                 return cls(s, play_type)
         return None
+
+    @classmethod
+    def random(cls, play_type: str) -> "KKSong":
+        all_song_names = cls._all_song_names(play_type)
+        random.shuffle(all_song_names)
+        return cls(random.choice(all_song_names), play_type)
+
+    @classmethod
+    def _all_song_names(cls, play_type: str):
+        song_dir = Path(cls.base_music_dir, play_type)
+        if song_dir.is_dir():
+            return [f.stem for f in song_dir.iterdir()]
 
     def __init__(self, name: str, play_type: str):
         self.name = name
