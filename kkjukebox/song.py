@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 from typing import Optional
 
-from pydub import AudioSegment  # type: ignore
+from pydub import AudioSegment, effects  # type: ignore
 
 from .utils import load_json_resource
 from .weather import WeatherType
@@ -59,8 +59,8 @@ class Song:
             print(f"Making start and loop tracks for {path}")
             print(f"Original track is {len(original)/1000}s")
             print(f"Cutting loop from {loop_start_ms/1000} to {loop_end_ms/1000}")
-            start = original[:loop_end_ms]  # type: ignore
-            loop = original[loop_start_ms:loop_end_ms]  # type: ignore
+            start = effects.normalize(original[:loop_end_ms])  # type: ignore
+            loop = effects.normalize(original[loop_start_ms:loop_end_ms])  # type: ignore
             print(f"Start file is {len(start)/1000}s")
             print(f"Loop file is {len(loop)/1000}s")
 
