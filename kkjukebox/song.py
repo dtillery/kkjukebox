@@ -33,7 +33,7 @@ class Song:
         return self.filepath.name
 
     def _make_loop_files(
-        self, path: Path, loop_timing: dict[str, str], recut: bool = False
+        self, path: Path, loop_timing: dict[str, str], force_cut: bool = False
     ) -> tuple[str, str]:
         if not path.is_file():
             raise FileNotFoundError(f"No file at {path}")
@@ -47,7 +47,7 @@ class Song:
 
         if (
             not (Path(start_filepath).is_file() and Path(loop_filepath).is_file())
-            or recut
+            or force_cut
         ):
             print("Start and/or Loop files not found. Cutting now...")
 
@@ -108,13 +108,13 @@ class HourlySong(Song):
     def _hour_fill(self) -> str:
         return str(self.hour).zfill(2)
 
-    def make_loop_files(self) -> tuple[str, str]:
+    def make_loop_files(self, force_cut: bool = False) -> tuple[str, str]:
         hour_path = self.filepath
         hour_str = self._hour_fill
 
         loop_times = load_json_resource("hour_loop_times.json")
         song_loop_time = loop_times[self.game][self.weather][hour_str]
-        return self._make_loop_files(hour_path, song_loop_time)
+        return self._make_loop_files(hour_path, song_loop_time, force_cut)
 
 
 class KKSong(Song):
@@ -165,7 +165,7 @@ class KKSong(Song):
     def is_loopable(self):
         return self.play_type in ["aircheck", "musicbox"]
 
-    def make_loop_files(self) -> tuple[str, str]:
+    def make_loop_files(self, force_cut: bool = False) -> tuple[str, str]:
         loop_times = load_json_resource("kk_loop_times.json")
         song_loop_time = loop_times[self.name][self.play_type]
-        return self._make_loop_files(self.filepath, song_loop_time)
+        return self._make_loop_files(self.filepath, song_loop_time, force_cut)

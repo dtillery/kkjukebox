@@ -17,11 +17,14 @@ from .song import HourlySong, KKSong
 from .utils import load_json_resource
 from .weather import WeatherType, get_weather
 
+if TYPE_CHECKING:
+    from click import Context
+
 GAME_OPTIONS = ["animal-crossing", "wild-world", "new-leaf", "new-horizons"]
 HOUR_OPTIONS = [f"{i}{j}" for i in range(1, 13) for j in ["am", "pm"]]
 
 
-async def play_kk(show_type: str, song_name: Optional[str]):
+async def play_kk(show_type: str, song_name: Optional[str], force_cut: bool = False):
     pygame.mixer.init()
     if song_name:
         kk_song = KKSong.from_fuzzy_name(song_name, show_type)
@@ -31,7 +34,7 @@ async def play_kk(show_type: str, song_name: Optional[str]):
     if not kk_song:
         raise ValueError(f'No song found that matches "{song_name}"')
     elif kk_song.is_loopable:
-        song_start_filepath, song_loop_filepath = kk_song.make_loop_files()
+        song_start_filepath, song_loop_filepath = kk_song.make_loop_files(force_cut)
         pygame.mixer.music.load(song_start_filepath)
         pygame.mixer.music.queue(song_loop_filepath, loops=-1)
         print(f"Now Playing: {kk_song.name} ({kk_song.play_type})!")
@@ -47,7 +50,11 @@ async def play_kk(show_type: str, song_name: Optional[str]):
 
 
 async def play_hour(
-    game: str, hour: str, weather: WeatherType | str, location: str, force_cut: bool
+    game: str,
+    hour: str,
+    weather: WeatherType | str,
+    location: str,
+    force_cut: bool = False,
 ):
     hour_12 = hour
     if hour == "now":
@@ -81,7 +88,7 @@ async def play_hour(
                 curr_weather = await get_weather(location)
 
             h = HourlySong(hour_24, curr_game, curr_weather)
-            hour_start_filepath, hour_loop_filepath = h.make_loop_files()
+            hour_start_filepath, hour_loop_filepath = h.make_loop_files(force_cut)
             print(f"Playing {h.hour} ({h.game}/{h.weather.value})!")
             pygame.mixer.music.load(hour_start_filepath)
             pygame.mixer.music.queue(hour_loop_filepath, loops=-1)
@@ -96,22 +103,27 @@ async def end(fadeout_secs: int = 2) -> None:
 
 
 @group(cls=RichGroup, context_settings={"auto_envvar_prefix": "KKJUKEBOX"})
-def cli() -> None:
+@option("--force-cut", is_flag=True, help="Cut loop sample even if they already exist.")
+@click.pass_context
+def cli(ctx: "Context", force_cut: bool) -> None:
     """
     Play music from your favorite Animal Crossing games.
     """
-    pass
+    ctx.ensure_object(dict)
+    ctx.obj["force_cut"] = force_cut
 
 
 @cli.command(cls=RichCommand)
 @argument("play_type", type=Choice(["live", "aircheck", "musicbox"]))
 @argument("song_name", type=str, required=False, default=None)
-def kk(play_type: str, song_name: Optional[str]):
+@click.pass_context
+def kk(ctx: "Context", play_type: str, song_name: Optional[str]):
     """
     Play music from KK Slider.
     """
+    force_cut = ctx.obj["force_cut"]
     try:
-        asyncio.run(play_kk(play_type, song_name))
+        asyncio.run(play_kk(play_type, song_name, force_cut))
     except KeyboardInterrupt:
         print("Bye!")
         asyncio.run(end())
@@ -124,17 +136,14 @@ def kk(play_type: str, song_name: Optional[str]):
     "-w", "--weather", type=Choice(list(WeatherType) + ["location"]), default="location"
 )
 @option("-l", "--location", type=str, default="local")
-@option("--force-cut", is_flag=True, help="Cut loop sample even if they already exist.")
+@click.pass_context
 def hourly(
-    game: str,
-    hour: str,
-    weather: WeatherType | str,
-    location: str,
-    force_cut: bool,
+    ctx: "Context", game: str, hour: str, weather: WeatherType | str, location: str
 ):
     """
     Play seamlessly-looping hourly music.
     """
+    force_cut = ctx.obj["force_cut"]
     try:
         asyncio.run(play_hour(game, hour, weather, location, force_cut))
     except KeyboardInterrupt:
