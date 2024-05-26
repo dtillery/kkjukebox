@@ -81,7 +81,7 @@ class HourlySong(Song):
     weather: WeatherType
 
     def __init__(self, hour: int, game: str, weather: WeatherType | str) -> None:
-        if hour <= 0 or hour >= 23:
+        if hour < 0 or hour > 23:
             raise ValueError(f"Hour must be between 0 and 23")
         self.hour = hour
         self.game = game
@@ -146,7 +146,7 @@ class KKSong(Song):
         return all_song_names
 
     @classmethod
-    def random(cls, version: str) -> "KKSong" | None:
+    def random(cls, version: str) -> Optional["KKSong"]:
         all_song_names = cls.all_song_names(version, shuffle=True)
         if all_song_names:
             return cls(all_song_names[0], version)
