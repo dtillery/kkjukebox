@@ -121,35 +121,42 @@ class KKSong(Song):
 
     base_music_dir: Path = Path(f"{MUSIC_DIR}/kk")
     name: str
-    play_type: str
+    version: str
 
     @classmethod
-    def from_fuzzy_name(cls, song_name: str, play_type: str) -> Optional["KKSong"]:
-        all_song_names = cls._all_song_names(play_type)
+    def from_fuzzy_name(cls, song_name: str, version: str) -> Optional["KKSong"]:
+        all_song_names = cls.all_song_names(version)
         pattern = re.compile("[^a-zA-Z]")
         name_squished = pattern.sub("", song_name).lower()
         for s in all_song_names:
             if name_squished in pattern.sub("", s).lower():
-                return cls(s, play_type)
+                return cls(s, version)
         return None
 
     @classmethod
-    def random(cls, play_type: str) -> "KKSong":
-        all_song_names = cls._all_song_names(play_type)
-        random.shuffle(all_song_names)
-        return cls(random.choice(all_song_names), play_type)
+    def all_song_names(cls, version: str, shuffle: bool = False) -> list[str]:
+        all_song_names: list[str] = []
+        song_dir = Path(cls.base_music_dir, version)
+        if song_dir.is_dir():
+            all_song_names = [f.stem for f in song_dir.iterdir()]
+        if shuffle:
+            random.shuffle(all_song_names)
+        else:
+            all_song_names.sort()
+        return all_song_names
 
     @classmethod
-    def _all_song_names(cls, play_type: str):
-        song_dir = Path(cls.base_music_dir, play_type)
-        if song_dir.is_dir():
-            return [f.stem for f in song_dir.iterdir()]
+    def random(cls, version: str) -> "KKSong" | None:
+        all_song_names = cls.all_song_names(version, shuffle=True)
+        if all_song_names:
+            return cls(all_song_names[0], version)
+        return None
 
-    def __init__(self, name: str, play_type: str):
+    def __init__(self, name: str, version: str):
         self.name = name
-        self.play_type = play_type
+        self.version = version
 
-        song_dir = Path(os.path.join(MUSIC_DIR, "kk", play_type))
+        song_dir = Path(os.path.join(MUSIC_DIR, "kk", version))
         if not song_dir.is_dir():
             raise OSError(f'Directory "{song_dir}" not found.')
 
@@ -163,9 +170,9 @@ class KKSong(Song):
 
     @property
     def is_loopable(self):
-        return self.play_type in ["aircheck", "musicbox"]
+        return self.version in ["aircheck", "musicbox"]
 
     def make_loop_files(self, force_cut: bool = False) -> tuple[str, str]:
         loop_times = load_json_resource("kk_loop_times.json")
-        song_loop_time = loop_times[self.name][self.play_type]
+        song_loop_time = loop_times[self.name][self.version]
         return self._make_loop_files(self.filepath, song_loop_time, force_cut)

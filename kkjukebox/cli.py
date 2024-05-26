@@ -24,12 +24,12 @@ GAME_OPTIONS = ["animal-crossing", "wild-world", "new-leaf", "new-horizons"]
 HOUR_OPTIONS = [f"{i}{j}" for i in range(1, 13) for j in ["am", "pm"]]
 
 
-async def play_kk(show_type: str, song_name: Optional[str], force_cut: bool = False):
+async def play_kk(version: str, song_name: Optional[str], force_cut: bool = False):
     pygame.mixer.init()
     if song_name:
-        kk_song = KKSong.from_fuzzy_name(song_name, show_type)
+        kk_song = KKSong.from_fuzzy_name(song_name, version)
     else:
-        kk_song = KKSong.random(show_type)
+        kk_song = KKSong.random(version)
 
     if not kk_song:
         raise ValueError(f'No song found that matches "{song_name}"')
@@ -37,12 +37,12 @@ async def play_kk(show_type: str, song_name: Optional[str], force_cut: bool = Fa
         song_start_filepath, song_loop_filepath = kk_song.make_loop_files(force_cut)
         pygame.mixer.music.load(song_start_filepath)
         pygame.mixer.music.queue(song_loop_filepath, loops=-1)
-        print(f"Now Playing: {kk_song.name} ({kk_song.play_type})!")
+        print(f"Now Playing: {kk_song.name} ({kk_song.version})!")
         pygame.mixer.music.play()
         while True:
             await asyncio.sleep(5)
     else:
-        print(f"Now Playing: {kk_song.name} ({kk_song.play_type})!")
+        print(f"Now Playing: {kk_song.name} ({kk_song.version})!")
         pygame.mixer.music.load(kk_song.filepath)
         pygame.mixer.music.play()
         while pygame.mixer.music.get_busy():
@@ -114,16 +114,16 @@ def cli(ctx: "Context", force_cut: bool) -> None:
 
 
 @cli.command(cls=RichCommand)
-@argument("play_type", type=Choice(["live", "aircheck", "musicbox"]))
+@argument("version", type=Choice(["live", "aircheck", "musicbox"]))
 @argument("song_name", type=str, required=False, default=None)
 @click.pass_context
-def kk(ctx: "Context", play_type: str, song_name: Optional[str]):
+def kk(ctx: "Context", version: str, song_name: Optional[str]):
     """
     Play music from KK Slider.
     """
     force_cut = ctx.obj["force_cut"]
     try:
-        asyncio.run(play_kk(play_type, song_name, force_cut))
+        asyncio.run(play_kk(version, song_name, force_cut))
     except KeyboardInterrupt:
         print("Bye!")
         asyncio.run(end())
