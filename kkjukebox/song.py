@@ -82,6 +82,7 @@ class Song:
 class HourlySong(Song):
 
     hour: int
+    _hour_am_pm: str
     game: Game
     weather: Weather
 
@@ -89,6 +90,7 @@ class HourlySong(Song):
         if hour < 0 or hour > 23:
             raise ValueError(f"Hour must be between 0 and 23")
         self.hour = hour
+        self._hour_am_pm = datetime.datetime(1900, 1, 1, hour, 0, 0).strftime("%-I%p")
         self.game = Game(game)
         self.weather = Weather(weather)
 
@@ -108,6 +110,9 @@ class HourlySong(Song):
             raise OSError(f'Multiple files found for "{self.hour}"')
 
         super().__init__(matching_songs[0])
+
+    def __str__(self) -> str:
+        return f"{self._hour_am_pm} ({self.game}/{self.weather})"
 
     @property
     def is_loopable(self):
@@ -176,6 +181,9 @@ class KKSong(Song):
             raise OSError(f'Multiple files found for "{self.name}"')
 
         super().__init__(matching_songs[0])
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.version})"
 
     @property
     def is_loopable(self):

@@ -110,7 +110,7 @@ class Jukebox:
                 hour_start_filepath, hour_loop_filepath = h.make_loop_files(
                     self.force_cut
                 )
-                print(f"Playing {h.hour} ({h.game.value}/{h.weather.value})!")
+                print(f"Now Playing: {h}!")
                 pygame.mixer.music.load(hour_start_filepath)
                 pygame.mixer.music.queue(hour_loop_filepath, loops=-1)
                 pygame.mixer.music.play()
@@ -160,8 +160,7 @@ class Jukebox:
 
     async def _play_setlist(self, version: str) -> None:
         self.setlist = KKSong.all_song_names(version)
-        curr_setlist = self.setlist[:]
-        random.shuffle(curr_setlist)
+        curr_setlist: list[str] = []
 
         while True:
             if not pygame.mixer.music.get_busy():
@@ -181,9 +180,7 @@ class Jukebox:
                     pygame.mixer.music.load(next_song.filepath)
 
                 self.now_playing = next_song
-                print(
-                    f"Now Playing: {self.now_playing.name} ({self.now_playing.version})!"
-                )
+                print(f"Now Playing: {self.now_playing}!")
                 self.now_playing_start_time = monotonic()
                 pygame.mixer.music.play()
             elif self._time_for_next_song:

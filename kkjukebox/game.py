@@ -1,7 +1,7 @@
-from enum import Enum
+from enum import StrEnum
 
 
-class Game(str, Enum):
+class Game(StrEnum):
     ANIMAL_CROSSING = "animal-crossing"
     WILD_WORLD = "wild-world"
     NEW_LEAF = "new-leaf"

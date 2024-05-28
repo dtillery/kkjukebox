@@ -1,5 +1,5 @@
 import asyncio
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
 import python_weather as pw  # type: ignore
@@ -27,7 +27,7 @@ KINDS_SNOW = [
 ]
 
 
-class Weather(str, Enum):
+class Weather(StrEnum):
     SUNNY = "sunny"
     RAINING = "raining"
     SNOWING = "snowing"
@@ -45,7 +45,7 @@ async def get_weather(location: str) -> "Weather":
                 forecast = await client.get(location)
     except Exception as e:
         print(
-            f"Error retrieving forecast ({type(e).__name__}); going with {Weather.SUNNY.value}"
+            f"Error retrieving forecast ({type(e).__name__}); going with {Weather.SUNNY}"
         )
         return Weather.SUNNY
 
