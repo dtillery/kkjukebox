@@ -30,6 +30,10 @@ class Song:
         return f"{self.__class__.__name__}({self.filename})"
 
     @property
+    def is_loopable(self):
+        return False
+
+    @property
     def filename(self) -> str:
         return self.filepath.name
 
@@ -97,13 +101,17 @@ class HourlySong(Song):
             raise OSError(f'Directory "{song_dir}" not found.')
 
         hour_match = str(self.hour).zfill(2)
-        matching_songs = [f for f in song_dir.iterdir() if hour_match in f.name]
+        matching_songs = [f for f in song_dir.iterdir() if hour_match == f.stem]
         if not matching_songs:
             raise OSError(f'No file found containing "{self.hour}"')
         elif len(matching_songs) > 1:
             raise OSError(f'Multiple files found for "{self.hour}"')
 
         super().__init__(matching_songs[0])
+
+    @property
+    def is_loopable(self):
+        return True
 
     @property
     def _hour_fill(self) -> str:
@@ -161,7 +169,7 @@ class KKSong(Song):
         if not song_dir.is_dir():
             raise OSError(f'Directory "{song_dir}" not found.')
 
-        matching_songs = [f for f in song_dir.iterdir() if self.name in f.name]
+        matching_songs = [f for f in song_dir.iterdir() if self.name == f.stem]
         if not matching_songs:
             raise OSError(f'No file found containing "{self.name}"')
         elif len(matching_songs) > 1:
