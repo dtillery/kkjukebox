@@ -5,101 +5,49 @@ os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
 import asyncio
 import datetime
 import random
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Literal, Optional
 
 import click
 import pygame
 from click import Choice, argument, group, option
 from rich_click import RichCommand, RichGroup
 
+from .game import Game
+from .jukebox import Jukebox
 from .location import get_location
 from .song import HourlySong, KKSong
 from .utils import load_json_resource
-from .weather import WeatherType, get_weather
+from .weather import Weather, get_weather
 
 if TYPE_CHECKING:
-    from click import Context
+    from click import Context, Parameter
 
-GAME_OPTIONS = ["animal-crossing", "wild-world", "new-leaf", "new-horizons"]
 HOUR_OPTIONS = [f"{i}{j}" for i in range(1, 13) for j in ["am", "pm"]]
 
 
-async def play_kk(version: str, song_name: Optional[str], force_cut: bool = False):
-    pygame.mixer.init()
-    if song_name:
-        kk_song = KKSong.from_fuzzy_name(song_name, version)
+def validate_hour(
+    ctx: "Context", param: "Parameter", value: str
+) -> int | Literal["now", "random"]:
+    hour: Optional[int | str] = None
+    if value == "random":
+        return "random"
+    elif value == "now":
+        return "now"
+
+    try:
+        hour = int(value)
+    except ValueError:
+        pass
     else:
-        kk_song = KKSong.random(version)
+        if 23 < hour < 0:
+            raise click.BadParameter("Hour value must be between 0 and 23")
+        else:
+            return hour
 
-    if not kk_song:
-        raise ValueError(f'No song found that matches "{song_name}"')
-    elif kk_song.is_loopable:
-        song_start_filepath, song_loop_filepath = kk_song.make_loop_files(force_cut)
-        pygame.mixer.music.load(song_start_filepath)
-        pygame.mixer.music.queue(song_loop_filepath, loops=-1)
-        print(f"Now Playing: {kk_song.name} ({kk_song.version})!")
-        pygame.mixer.music.play()
-        while True:
-            await asyncio.sleep(5)
-    else:
-        print(f"Now Playing: {kk_song.name} ({kk_song.version})!")
-        pygame.mixer.music.load(kk_song.filepath)
-        pygame.mixer.music.play()
-        while pygame.mixer.music.get_busy():
-            await asyncio.sleep(5)
-
-
-async def play_hour(
-    game: str,
-    hour: str,
-    weather: WeatherType | str,
-    location: str,
-    force_cut: bool = False,
-):
-    hour_12 = hour
-    if hour == "now":
-        hour_12 = datetime.datetime.now().strftime("%-I%p").lower()
-    elif hour == "random":
-        hour_12 = random.choice(HOUR_OPTIONS)
-
-    hour_24 = datetime.datetime.strptime(hour_12, "%I%p").hour
-
-    if location == "local":
-        location = get_location()
-
-    pygame.mixer.init()
-    while True:
-        now = datetime.datetime.now()
-        one_hour = datetime.timedelta(hours=1)
-        next_hour = now.replace(microsecond=0, second=0, minute=0) + one_hour
-        # print(f"Time until next hour: {(next_hour - now).total_seconds()}")
-        if (next_hour - now).total_seconds() < 10.0:
-            hour_24 = next_hour.hour
-            await end(10)
-            await asyncio.sleep(1)
-
-        if not pygame.mixer.music.get_busy():
-            curr_game = game
-            if game == "random":
-                curr_game = random.choice(GAME_OPTIONS)
-
-            curr_weather = weather
-            if weather == "location":
-                curr_weather = await get_weather(location)
-
-            h = HourlySong(hour_24, curr_game, curr_weather)
-            hour_start_filepath, hour_loop_filepath = h.make_loop_files(force_cut)
-            print(f"Playing {h.hour} ({h.game}/{h.weather.value})!")
-            pygame.mixer.music.load(hour_start_filepath)
-            pygame.mixer.music.queue(hour_loop_filepath, loops=-1)
-            pygame.mixer.music.play()
-
-        await asyncio.sleep(5)
-
-
-async def end(fadeout_secs: int = 2) -> None:
-    pygame.mixer.music.fadeout(fadeout_secs * 1000)
-    await asyncio.sleep(fadeout_secs)
+    try:
+        return datetime.datetime.strptime(value, "%I%p").hour
+    except ValueError:
+        raise click.BadParameter("Could not parse hour value in AM/PM format")
 
 
 @group(cls=RichGroup, context_settings={"auto_envvar_prefix": "KKJUKEBOX"})
@@ -122,33 +70,68 @@ def kk(ctx: "Context", version: str, song_name: Optional[str]):
     Play music from KK Slider.
     """
     force_cut = ctx.obj["force_cut"]
+    j = Jukebox(force_cut=force_cut)
     try:
-        asyncio.run(play_kk(version, song_name, force_cut))
+        asyncio.run(j.play_kk(version, song_name))
     except KeyboardInterrupt:
-        print("Bye!")
-        asyncio.run(end())
+        asyncio.run(j.stop())
 
 
 @cli.command(cls=RichCommand)
-@option("-g", "--game", type=Choice(GAME_OPTIONS + ["random"]), default="new-horizons")
-@option("-h", "--hour", type=Choice(HOUR_OPTIONS + ["now", "random"]), default="now")
 @option(
-    "-w", "--weather", type=Choice(list(WeatherType) + ["location"]), default="location"
+    "-g",
+    "--game",
+    type=Choice([g.value for g in Game] + ["random"]),
+    default=Game.NEW_HORIZONS.value,
+    show_default=True,
+    show_envvar=True,
+    help='Which AC game to source music from. Can be "random".',
 )
-@option("-l", "--location", type=str, default="local")
+@option(
+    "-h",
+    "--hour",
+    type=click.UNPROCESSED,
+    callback=validate_hour,
+    default="now",
+    help='The hour to play in either 24-hour or AM/PM format. Additionally can be "random" or "now".',
+    show_default=True,
+    show_envvar=True,
+)
+@option(
+    "-w",
+    "--weather",
+    type=Choice([w.value for w in Weather] + ["location", "random"]),
+    default="location",
+    show_default=True,
+    show_envvar=True,
+    help='The weather type for sourcing music. Can additionally be "random" or "location" to use the value specified by the location option for real-time weather sourcing.',
+)
+@option(
+    "-l",
+    "--location",
+    type=str,
+    default="local",
+    show_default=True,
+    show_envvar=True,
+    help='The location to use for sourcing real-time weather. Can be "local" to lookup (using IP geocoding) the current location.',
+)
 @click.pass_context
 def hourly(
-    ctx: "Context", game: str, hour: str, weather: WeatherType | str, location: str
+    ctx: "Context",
+    game: str,
+    hour: int | Literal["now", "random"],
+    weather: str,
+    location: str,
 ):
     """
     Play seamlessly-looping hourly music.
     """
     force_cut = ctx.obj["force_cut"]
+    j = Jukebox(force_cut=force_cut)
     try:
-        asyncio.run(play_hour(game, hour, weather, location, force_cut))
+        asyncio.run(j.play_hourly(hour, game, weather, location))
     except KeyboardInterrupt:
-        print("Bye!")
-        asyncio.run(end())
+        asyncio.run(j.stop())
 
 
 if __name__ == "__main__":

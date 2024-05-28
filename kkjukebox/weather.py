@@ -27,7 +27,7 @@ KINDS_SNOW = [
 ]
 
 
-class WeatherType(str, Enum):
+class Weather(str, Enum):
     SUNNY = "sunny"
     RAINING = "raining"
     SNOWING = "snowing"
@@ -37,7 +37,7 @@ class WeatherType(str, Enum):
         return [w.value for w in cls]
 
 
-async def get_weather(location: str) -> "WeatherType":
+async def get_weather(location: str) -> "Weather":
     forecast: "Forecast" = None
     try:
         async with asyncio.timeout(5):
@@ -45,16 +45,16 @@ async def get_weather(location: str) -> "WeatherType":
                 forecast = await client.get(location)
     except Exception as e:
         print(
-            f"Error retrieving forecast ({type(e).__name__}); going with {WeatherType.SUNNY.value}"
+            f"Error retrieving forecast ({type(e).__name__}); going with {Weather.SUNNY.value}"
         )
-        return WeatherType.SUNNY
+        return Weather.SUNNY
 
     print(
         f"{forecast.kind.emoji}  Weather in {forecast.location}, {forecast.region}: {forecast.kind}! {forecast.kind.emoji}"
     )
     if forecast.kind in KINDS_RAIN:
-        return WeatherType.RAINING
+        return Weather.RAINING
     elif forecast.kind in KINDS_SNOW:
-        return WeatherType.SNOWING
+        return Weather.SNOWING
     else:
-        return WeatherType.SUNNY
+        return Weather.SUNNY
