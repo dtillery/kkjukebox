@@ -1,28 +1,17 @@
-import os
-
-os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
-
 import asyncio
 import datetime
-import random
 from typing import TYPE_CHECKING, Literal, Optional
 
 import click
-import pygame
 from click import Choice, argument, group, option
 from rich_click import RichCommand, RichGroup
 
 from .game import Game
 from .jukebox import Jukebox
-from .location import get_location
-from .song import HourlySong, KKSong
-from .utils import load_json_resource
-from .weather import Weather, get_weather
+from .weather import Weather
 
 if TYPE_CHECKING:
     from click import Context, Parameter
-
-HOUR_OPTIONS = [f"{i}{j}" for i in range(1, 13) for j in ["am", "pm"]]
 
 
 def validate_hour(
@@ -65,7 +54,7 @@ def cli(ctx: "Context", force_cut: bool) -> None:
 @argument("version", type=Choice(["live", "aircheck", "musicbox"]))
 @argument("song_name", type=str, required=False, default=None)
 @click.pass_context
-def kk(ctx: "Context", version: str, song_name: Optional[str]):
+def kk(ctx: "Context", version: str, song_name: Optional[str]) -> None:
     """
     Play music from KK Slider.
     """
@@ -93,7 +82,7 @@ def kk(ctx: "Context", version: str, song_name: Optional[str]):
     type=click.UNPROCESSED,
     callback=validate_hour,
     default="now",
-    help='The hour to play in either 24-hour or AM/PM format. Additionally can be "random" or "now".',
+    help='The hour to play in either 24-hour or AM/PM format. Can also be "random" or "now".',
     show_default=True,
     show_envvar=True,
 )
@@ -104,7 +93,7 @@ def kk(ctx: "Context", version: str, song_name: Optional[str]):
     default="location",
     show_default=True,
     show_envvar=True,
-    help='The weather type for sourcing music. Can additionally be "random" or "location" to use the value specified by the location option for real-time weather sourcing.',
+    help='The weather type for sourcing music. Can also be "random" or "location" to use the value specified by the location option for real-time weather sourcing.',
 )
 @option(
     "-l",
@@ -122,7 +111,7 @@ def hourly(
     hour: int | Literal["now", "random"],
     weather: str,
     location: str,
-):
+) -> None:
     """
     Play seamlessly-looping hourly music.
     """
