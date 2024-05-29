@@ -28,7 +28,7 @@ class Jukebox:
     loop_upper_secs: int
     loop_lower_secs: int
 
-    setlist: list[str]
+    setlist: list[tuple[str, str]]
 
     now_playing: Song
     now_playing_start_time: float
@@ -45,6 +45,7 @@ class Jukebox:
         self._loop_length = loop_length
         self.loop_upper_secs = loop_upper_secs
         self.loop_lower_secs = loop_lower_secs
+        self.now_playing_length = 0
 
         self.randomized_hour = False
         self.randomized_game = False
@@ -137,11 +138,13 @@ class Jukebox:
 
             await asyncio.sleep(1)
 
-    async def play_kk(self, version: str, song_name: Optional[str]) -> None:
+    async def play_kk(self, versions: list[str], song_name: Optional[str]) -> None:
+        if not versions:
+            raise ValueError("At least one version must be specified.")
         if song_name:
-            await self._play_single(version, song_name)
+            await self._play_single(versions[0], song_name)
         else:
-            await self._play_setlist(version)
+            await self._play_setlist(versions)
 
     async def _play_single(self, version: str, song_name: Optional[str]) -> None:
         if song_name:
@@ -178,17 +181,18 @@ class Jukebox:
     def _set_playback_length(self) -> None:
         self.now_playing_length = self.get_loop_length()
 
-    async def _play_setlist(self, version: str) -> None:
-        self.setlist = KKSong.all_song_names(version)
-        curr_setlist: list[str] = []
+    async def _play_setlist(self, versions: list[str]) -> None:
+        for v in versions:
+            self.setlist.extend([(v, s) for s in KKSong.all_song_names(v)])
+        curr_setlist: list[tuple[str, str]] = []
 
         while True:
             if not pygame.mixer.music.get_busy():
                 if not curr_setlist:
                     curr_setlist = self.setlist[:]
                     random.shuffle(curr_setlist)
-                next_song_name = curr_setlist.pop(0)
-                next_song = KKSong(next_song_name, version)
+                song_version, song_name = curr_setlist.pop(0)
+                next_song = KKSong(song_name, song_version)
                 if next_song.is_loopable:
                     self._set_playback_length()
                     song_start_filepath, song_loop_filepath = next_song.make_loop_files(
@@ -200,9 +204,9 @@ class Jukebox:
                     pygame.mixer.music.load(next_song.filepath)
 
                 self.now_playing = next_song
-                print(
-                    f"Now Playing: {self.now_playing} ({self.now_playing_length} secs)!"
-                )
+                print(f"Now Playing: {self.now_playing}!")
+                if self.now_playing.is_loopable:
+                    print(f"Looping for: {self.now_playing_length} secs")
                 self.now_playing_start_time = monotonic()
                 pygame.mixer.music.play()
             elif self._time_for_next_song:

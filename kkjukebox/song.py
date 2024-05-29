@@ -16,6 +16,8 @@ try:
 except KeyError:
     raise RuntimeError(f"KKJUKEBOX_MUSIC_DIR must be set")
 
+ALLOWED_SONG_FILETYPES = [".mp3", ".ogg", ".wav"]
+
 
 class Song:
 
@@ -152,7 +154,9 @@ class KKSong(Song):
         all_song_names: list[str] = []
         song_dir = Path(cls.base_music_dir, version)
         if song_dir.is_dir():
-            all_song_names = [f.stem for f in song_dir.iterdir()]
+            all_song_names = [
+                f.stem for f in song_dir.iterdir() if f.suffix in ALLOWED_SONG_FILETYPES
+            ]
         if shuffle:
             random.shuffle(all_song_names)
         else:

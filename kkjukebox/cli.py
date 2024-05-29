@@ -89,7 +89,17 @@ def cli(ctx: "Context", force_cut: bool) -> None:
     show_envvar=True,
     help="Lower bound in seconds for random selection of loop-length.",
 )
-@argument("version", type=Choice(["live", "aircheck", "musicbox"]))
+@option(
+    "-v",
+    "--version",
+    "versions",
+    type=Choice(["live", "aircheck", "musicbox"]),
+    multiple=True,
+    default=["live"],
+    show_envvar=True,
+    show_default=True,
+    help="Song version to play. Can be specified multiple times.",
+)
 @argument("song_name", type=str, required=False, default=None)
 @click.pass_context
 def kk(
@@ -97,7 +107,7 @@ def kk(
     loop_length: int | Literal["random"],
     ll_upper: int,
     ll_lower: int,
-    version: str,
+    versions: list[str],
     song_name: Optional[str],
 ) -> None:
     """
@@ -111,7 +121,7 @@ def kk(
         loop_lower_secs=ll_lower,
     )
     try:
-        asyncio.run(j.play_kk(version, song_name=song_name))
+        asyncio.run(j.play_kk(versions, song_name=song_name))
     except KeyboardInterrupt:
         asyncio.run(j.stop())
 
