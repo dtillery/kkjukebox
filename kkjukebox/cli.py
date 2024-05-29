@@ -14,13 +14,24 @@ if TYPE_CHECKING:
     from click import Context, Parameter
 
 
+def int_or_random(
+    ctx: "Context", param: "Parameter", value: str
+) -> int | Literal["random"]:
+    if value.lower() == "random":
+        return "random"
+    try:
+        return int(value)
+    except ValueError:
+        raise click.BadParameter('Value must be either an inteter or "random"')
+
+
 def validate_hour(
     ctx: "Context", param: "Parameter", value: str
 ) -> int | Literal["now", "random"]:
     hour: Optional[int | str] = None
-    if value == "random":
+    if value.lower() == "random":
         return "random"
-    elif value == "now":
+    elif value.lower() == "now":
         return "now"
 
     try:
@@ -51,17 +62,56 @@ def cli(ctx: "Context", force_cut: bool) -> None:
 
 
 @cli.command(cls=RichCommand)
+@option(
+    "--loop-length",
+    type=click.UNPROCESSED,
+    callback=int_or_random,
+    default=60,
+    show_default=True,
+    show_envvar=True,
+    help='How long a looping song should play before transitioning to the next. Can be an integer or "random"',
+)
+@option(
+    "--loop-length-upper-secs",
+    "ll_upper",
+    type=int,
+    default=120,
+    show_default=True,
+    show_envvar=True,
+    help="Upper bound in seconds for random selection of loop-length.",
+)
+@option(
+    "--loop-length-lower-secs",
+    "ll_lower",
+    type=int,
+    default=60,
+    show_default=True,
+    show_envvar=True,
+    help="Lower bound in seconds for random selection of loop-length.",
+)
 @argument("version", type=Choice(["live", "aircheck", "musicbox"]))
 @argument("song_name", type=str, required=False, default=None)
 @click.pass_context
-def kk(ctx: "Context", version: str, song_name: Optional[str]) -> None:
+def kk(
+    ctx: "Context",
+    loop_length: int | Literal["random"],
+    ll_upper: int,
+    ll_lower: int,
+    version: str,
+    song_name: Optional[str],
+) -> None:
     """
     Play music from KK Slider.
     """
     force_cut = ctx.obj["force_cut"]
-    j = Jukebox(force_cut=force_cut)
+    j = Jukebox(
+        force_cut=force_cut,
+        loop_length=loop_length,
+        loop_upper_secs=ll_upper,
+        loop_lower_secs=ll_lower,
+    )
     try:
-        asyncio.run(j.play_kk(version, song_name))
+        asyncio.run(j.play_kk(version, song_name=song_name))
     except KeyboardInterrupt:
         asyncio.run(j.stop())
 

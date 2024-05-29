@@ -24,20 +24,40 @@ class Jukebox:
     randomize_weather: bool
     localized_weather: bool
 
+    _loop_length: int | Literal["random"]
+    loop_upper_secs: int
+    loop_lower_secs: int
+
     setlist: list[str]
 
     now_playing: Song
     now_playing_start_time: float
     now_playing_length: float
 
-    def __init__(self, force_cut: bool = False) -> None:
+    def __init__(
+        self,
+        force_cut: bool = False,
+        loop_length: int | Literal["random"] = 60,
+        loop_upper_secs: int = 60,
+        loop_lower_secs: int = 120,
+    ) -> None:
         self.force_cut = force_cut
+        self._loop_length = loop_length
+        self.loop_upper_secs = loop_upper_secs
+        self.loop_lower_secs = loop_lower_secs
+
         self.randomized_hour = False
         self.randomized_game = False
         self.randomized_weather = False
         self.localized_weather = False
         self.setlist = []
         pygame.mixer.init()
+
+    def get_loop_length(self):
+        if self._loop_length == "random":
+            return random.randint(self.loop_lower_secs, self.loop_upper_secs)
+        else:
+            return self._loop_length
 
     def _get_curr_location(self) -> str:
         return get_location()
@@ -97,13 +117,13 @@ class Jukebox:
 
             if not pygame.mixer.music.get_busy():
                 if self.randomized_game:
-                    curr_game = random.choice(list(Game))
+                    curr_game = random.choice([g for g in Game])
                     print(f"Random game is {curr_game}")
 
                 if self.localized_weather:
                     curr_weather = await self._get_curr_weather(location)
                 elif self.randomized_weather:
-                    curr_weather = random.choice(list(Weather))
+                    curr_weather = random.choice([w for w in Weather])
                     print(f"Random weather is {curr_weather}")
 
                 h = HourlySong(hour_24, curr_game, curr_weather)
@@ -156,7 +176,7 @@ class Jukebox:
             return False
 
     def _set_playback_length(self) -> None:
-        self.now_playing_length = 60.0
+        self.now_playing_length = self.get_loop_length()
 
     async def _play_setlist(self, version: str) -> None:
         self.setlist = KKSong.all_song_names(version)
@@ -180,7 +200,9 @@ class Jukebox:
                     pygame.mixer.music.load(next_song.filepath)
 
                 self.now_playing = next_song
-                print(f"Now Playing: {self.now_playing}!")
+                print(
+                    f"Now Playing: {self.now_playing} ({self.now_playing_length} secs)!"
+                )
                 self.now_playing_start_time = monotonic()
                 pygame.mixer.music.play()
             elif self._time_for_next_song:
