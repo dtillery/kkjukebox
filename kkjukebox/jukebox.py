@@ -25,6 +25,7 @@ class Jukebox:
     randomize_game: bool
     randomize_weather: bool
     localized_weather: bool
+    change_hourly: bool
 
     _loop_length: int | Literal["random"]
     loop_upper_secs: int
@@ -54,6 +55,7 @@ class Jukebox:
         self.randomized_game = False
         self.randomized_weather = False
         self.localized_weather = False
+        self.change_hourly = True
         self.setlist = []
         pygame.mixer.init()
 
@@ -96,19 +98,22 @@ class Jukebox:
             hour_24 = datetime.datetime.now().hour
         elif hour == "random":
             self.randomized_hour = True
-            hour_24 = random.randint(0, 23)
+            self.change_hourly = False
+            self.has_next_song = True
+            hours_shuffled: list[int] = []
         elif type(hour) == int:
             if 23 < hour < 0:
                 raise ValueError("Hour must be integer between 0 and 23")
             else:
                 hour_24 = hour
+                self.change_hourly = False
         else:
             raise ValueError(f'"{hour}" is not a valid value for hour')
 
         if game == "random":
             self.randomized_game = True
-            games_shuffled: list[Game] = []
             self.has_next_song = True
+            games_shuffled: list[Game] = []
         else:
             curr_game = Game(game)
 
@@ -129,6 +134,11 @@ class Jukebox:
             # log.debug(f"Time until next hour: {(next_hour - now).total_seconds()}")
 
             if not pygame.mixer.music.get_busy():
+                if self.randomized_hour:
+                    if not hours_shuffled:
+                        hours_shuffled = random.sample(range(24), k=24)
+                    hour_24 = hours_shuffled.pop(0)
+
                 if self.randomized_game:
                     if not games_shuffled:
                         games_shuffled = random.sample(list(Game), k=len(Game))
@@ -155,7 +165,7 @@ class Jukebox:
                 pygame.mixer.music.queue(hour_loop_filepath, loops=-1)
                 self.now_playing_start_time = monotonic()
                 pygame.mixer.music.play()
-            elif (next_hour - now).total_seconds() < 10.0:
+            elif self.change_hourly and (next_hour - now).total_seconds() < 10.0:
                 log.debug(f"Preparing for next hour ({next_hour}).")
                 hour_24 = next_hour.hour
                 games_shuffled = []
