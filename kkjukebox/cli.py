@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import logging
 from typing import TYPE_CHECKING, Literal, Optional
 
 import click
@@ -12,6 +13,10 @@ from .weather import Weather
 
 if TYPE_CHECKING:
     from click import Context, Parameter
+
+
+def set_log_level(log_level: Optional[str]) -> None:
+    logging.basicConfig(level=log_level, format="[%(levelname)s:%(name)s] %(message)s")
 
 
 def int_or_random(
@@ -52,12 +57,20 @@ def validate_hour(
 
 @group(cls=RichGroup, context_settings={"auto_envvar_prefix": "KKJUKEBOX"})
 @option("--force-cut", is_flag=True, help="Cut loop sample even if they already exist.")
+@click.option(
+    "-l",
+    "--log-level",
+    type=click.Choice(["DEBUG", "INFO"]),
+    default=None,
+    show_envvar=True,
+)
 @click.pass_context
-def cli(ctx: "Context", force_cut: bool) -> None:
+def cli(ctx: "Context", force_cut: bool, log_level: Optional[str]) -> None:
     """
     Play music from your favorite Animal Crossing games.
     """
     ctx.ensure_object(dict)
+    set_log_level(log_level)
     ctx.obj["force_cut"] = force_cut
 
 

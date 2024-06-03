@@ -4,6 +4,7 @@ os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
 
 import asyncio
 import datetime
+import logging as log
 import random
 from time import monotonic
 from typing import TYPE_CHECKING, Literal, Optional
@@ -110,7 +111,7 @@ class Jukebox:
             now = datetime.datetime.now()
             one_hour = datetime.timedelta(hours=1)
             next_hour = now.replace(microsecond=0, second=0, minute=0) + one_hour
-            # print(f"Time until next hour: {(next_hour - now).total_seconds()}")
+            log.debug(f"Time until next hour: {(next_hour - now).total_seconds()}")
             if (next_hour - now).total_seconds() < 10.0:
                 hour_24 = next_hour.hour
                 await self.stop(10)
@@ -119,19 +120,19 @@ class Jukebox:
             if not pygame.mixer.music.get_busy():
                 if self.randomized_game:
                     curr_game = random.choice([g for g in Game])
-                    print(f"Random game is {curr_game}")
+                    log.debug(f"Random game is {curr_game}")
 
                 if self.localized_weather:
                     curr_weather = await self._get_curr_weather(location)
                 elif self.randomized_weather:
                     curr_weather = random.choice([w for w in Weather])
-                    print(f"Random weather is {curr_weather}")
+                    log.debug(f"Random weather is {curr_weather}")
 
                 h = HourlySong(hour_24, curr_game, curr_weather)
                 hour_start_filepath, hour_loop_filepath = h.make_loop_files(
                     self.force_cut
                 )
-                print(f"Now Playing: {h}!")
+                log.info(f"Now Playing: {h}!")
                 pygame.mixer.music.load(hour_start_filepath)
                 pygame.mixer.music.queue(hour_loop_filepath, loops=-1)
                 pygame.mixer.music.play()
@@ -160,12 +161,12 @@ class Jukebox:
             )
             pygame.mixer.music.load(song_start_filepath)
             pygame.mixer.music.queue(song_loop_filepath, loops=-1)
-            print(f"Now Playing: {kk_song.name} ({kk_song.version})!")
+            log.info(f"Now Playing: {kk_song.name} ({kk_song.version})!")
             pygame.mixer.music.play()
             while True:
                 await asyncio.sleep(1)
         else:
-            print(f"Now Playing: {kk_song.name} ({kk_song.version})!")
+            log.info(f"Now Playing: {kk_song.name} ({kk_song.version})!")
             pygame.mixer.music.load(kk_song.filepath)
             pygame.mixer.music.play()
             while pygame.mixer.music.get_busy():
@@ -204,13 +205,13 @@ class Jukebox:
                     pygame.mixer.music.load(next_song.filepath)
 
                 self.now_playing = next_song
-                print(f"Now Playing: {self.now_playing}!")
+                log.info(f"Now Playing: {self.now_playing}!")
                 if self.now_playing.is_loopable:
-                    print(f"Looping for: {self.now_playing_length} secs")
+                    log.debug(f"Looping for: {self.now_playing_length} secs")
                 self.now_playing_start_time = monotonic()
                 pygame.mixer.music.play()
             elif self._time_for_next_song:
-                print("Fading out before next song...")
+                log.debug("Fading out before next song...")
                 await self.stop(5)
             else:
                 await asyncio.sleep(1)

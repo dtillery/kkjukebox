@@ -1,4 +1,5 @@
 import datetime
+import logging as log
 import os
 import random
 import re
@@ -56,20 +57,20 @@ class Song:
             not (Path(start_filepath).is_file() and Path(loop_filepath).is_file())
             or force_cut
         ):
-            print("Start and/or Loop files not found. Cutting now...")
+            log.debug("Start and/or Loop files not found. Cutting now...")
 
             loop_start_ms = float(loop_timing["start"]) * 1000
             loop_end_ms = float(loop_timing["end"]) * 1000
 
             original = AudioSegment.from_file(path)
 
-            print(f"Making start and loop tracks for {path}")
-            print(f"Original track is {len(original)/1000}s")
-            print(f"Cutting loop from {loop_start_ms/1000} to {loop_end_ms/1000}")
+            log.debug(f"Making start and loop tracks for {path}")
+            log.debug(f"Original track is {len(original)/1000}s")
+            log.debug(f"Cutting loop from {loop_start_ms/1000} to {loop_end_ms/1000}")
             start = effects.normalize(original[:loop_end_ms])  # type: ignore
             loop = effects.normalize(original[loop_start_ms:loop_end_ms])  # type: ignore
-            print(f"Start file is {len(start)/1000}s")
-            print(f"Loop file is {len(loop)/1000}s")
+            log.debug(f"Start file is {len(start)/1000}s")
+            log.debug(f"Loop file is {len(loop)/1000}s")
 
             try:
                 os.mkdir(loops_dir)

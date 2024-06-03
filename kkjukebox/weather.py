@@ -1,4 +1,5 @@
 import asyncio
+import logging as log
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
@@ -44,12 +45,12 @@ async def get_weather(location: str) -> "Weather":
             async with pw.Client(unit=pw.IMPERIAL) as client:
                 forecast = await client.get(location)
     except Exception as e:
-        print(
+        log.debug(
             f"Error retrieving forecast ({type(e).__name__}); going with {Weather.SUNNY}"
         )
         return Weather.SUNNY
 
-    print(
+    log.info(
         f"{forecast.kind.emoji}  Weather in {forecast.location}, {forecast.region}: {forecast.kind}! {forecast.kind.emoji}"
     )
     if forecast.kind in KINDS_RAIN:
