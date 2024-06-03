@@ -56,22 +56,38 @@ def validate_hour(
 
 
 @group(cls=RichGroup, context_settings={"auto_envvar_prefix": "KKJUKEBOX"})
-@option("--force-cut", is_flag=True, help="Cut loop sample even if they already exist.")
+@option(
+    "--force-cut",
+    is_flag=True,
+    show_envvar=True,
+    help="Cut loop sample even if they already exist.",
+)
 @click.option(
     "-l",
     "--log-level",
     type=click.Choice(["DEBUG", "INFO"]),
     default=None,
+    show_default=True,
     show_envvar=True,
+    help="Set logger level.",
+)
+@click.option(
+    "--music-dir",
+    required=True,
+    show_envvar=True,
+    help="Directory where music is located.",
 )
 @click.pass_context
-def cli(ctx: "Context", force_cut: bool, log_level: Optional[str]) -> None:
+def cli(
+    ctx: "Context", force_cut: bool, log_level: Optional[str], music_dir: str
+) -> None:
     """
     Play music from your favorite Animal Crossing games.
     """
     ctx.ensure_object(dict)
     set_log_level(log_level)
     ctx.obj["force_cut"] = force_cut
+    ctx.obj["music_idr"] = music_dir
 
 
 @cli.command(cls=RichCommand)
