@@ -20,6 +20,7 @@ from .weather import Weather, get_weather
 class Jukebox:
 
     force_cut: bool
+    has_next_song: bool
     randomize_hour: bool
     randomize_game: bool
     randomize_weather: bool
@@ -48,6 +49,7 @@ class Jukebox:
         self.loop_lower_secs = loop_lower_secs
         self.now_playing_length = 0
 
+        self.has_next_song = False
         self.randomized_hour = False
         self.randomized_game = False
         self.randomized_weather = False
@@ -72,6 +74,17 @@ class Jukebox:
         await asyncio.sleep(fadeout_secs)
         pygame.mixer.music.unload()
 
+    @property
+    def _time_for_next_song(self) -> bool:
+        if self.now_playing.is_loopable and self.has_next_song:
+            return (monotonic() - self.now_playing_start_time) > self.now_playing_length
+        else:
+            return False
+
+    def _set_playback_length(self) -> None:
+        self.now_playing_length = self.get_loop_length()
+        log.debug(f"Current playback length: {self.now_playing_length}")
+
     async def play_hourly(
         self,
         hour: int | Literal["now", "random"],
@@ -94,6 +107,8 @@ class Jukebox:
 
         if game == "random":
             self.randomized_game = True
+            games_shuffled: list[Game] = []
+            self.has_next_song = True
         else:
             curr_game = Game(game)
 
@@ -111,15 +126,16 @@ class Jukebox:
             now = datetime.datetime.now()
             one_hour = datetime.timedelta(hours=1)
             next_hour = now.replace(microsecond=0, second=0, minute=0) + one_hour
-            log.debug(f"Time until next hour: {(next_hour - now).total_seconds()}")
-            if (next_hour - now).total_seconds() < 10.0:
-                hour_24 = next_hour.hour
-                await self.stop(10)
-                await asyncio.sleep(1)
+            # log.debug(f"Time until next hour: {(next_hour - now).total_seconds()}")
 
             if not pygame.mixer.music.get_busy():
                 if self.randomized_game:
-                    curr_game = random.choice([g for g in Game])
+                    if not games_shuffled:
+                        games_shuffled = random.sample(list(Game), k=len(Game))
+                        log.debug(
+                            f"Games Shuffled: {[g.value for g in games_shuffled]}"
+                        )
+                    curr_game = games_shuffled.pop(0)
                     log.debug(f"Random game is {curr_game}")
 
                 if self.localized_weather:
@@ -132,12 +148,24 @@ class Jukebox:
                 hour_start_filepath, hour_loop_filepath = h.make_loop_files(
                     self.force_cut
                 )
+                self.now_playing = h
+                self._set_playback_length()
                 log.info(f"Now Playing: {h}!")
                 pygame.mixer.music.load(hour_start_filepath)
                 pygame.mixer.music.queue(hour_loop_filepath, loops=-1)
+                self.now_playing_start_time = monotonic()
                 pygame.mixer.music.play()
-
-            await asyncio.sleep(1)
+            elif (next_hour - now).total_seconds() < 10.0:
+                log.debug(f"Preparing for next hour ({next_hour}).")
+                hour_24 = next_hour.hour
+                games_shuffled = []
+                await self.stop(10)
+                await asyncio.sleep(1)
+            elif self._time_for_next_song:
+                log.debug("Preparing for next song.")
+                await self.stop(2)
+            else:
+                await asyncio.sleep(1)
 
     async def play_kk(self, versions: list[str], song_name: Optional[str]) -> None:
         if not versions:
@@ -172,17 +200,8 @@ class Jukebox:
             while pygame.mixer.music.get_busy():
                 await asyncio.sleep(1)
 
-    @property
-    def _time_for_next_song(self) -> bool:
-        if self.now_playing.is_loopable:
-            return (monotonic() - self.now_playing_start_time) > self.now_playing_length
-        else:
-            return False
-
-    def _set_playback_length(self) -> None:
-        self.now_playing_length = self.get_loop_length()
-
     async def _play_setlist(self, versions: list[str]) -> None:
+        self.has_next_song = True
         for v in versions:
             self.setlist.extend([(v, s) for s in KKSong.all_song_names(v)])
         curr_setlist: list[tuple[str, str]] = []

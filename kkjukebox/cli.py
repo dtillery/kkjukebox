@@ -95,10 +95,10 @@ def cli(
     "--loop-length",
     type=click.UNPROCESSED,
     callback=int_or_random,
-    default=60,
+    default="60",
     show_default=True,
     show_envvar=True,
-    help='How long a looping song should play before transitioning to the next. Can be an integer or "random"',
+    help='How long in seconds a looping song should play before transitioning to the next. Can be an integer or "random"',
 )
 @option(
     "--loop-length-upper-secs",
@@ -193,6 +193,33 @@ def kk(
     show_envvar=True,
     help='The location to use for sourcing real-time weather. Can be "local" to lookup (using IP geocoding) the current location.',
 )
+@option(
+    "--loop-length",
+    type=click.UNPROCESSED,
+    callback=int_or_random,
+    default="900",
+    show_default=True,
+    show_envvar=True,
+    help='How long in seconds an hourly song should play before transitioning to another. Can be an integer or "random". Only used when --game or --hour is set to "random".',
+)
+@option(
+    "--loop-length-upper-secs",
+    "ll_upper",
+    type=int,
+    default=1200,
+    show_default=True,
+    show_envvar=True,
+    help="Upper bound in seconds for random selection of loop-length.",
+)
+@option(
+    "--loop-length-lower-secs",
+    "ll_lower",
+    type=int,
+    default=300,
+    show_default=True,
+    show_envvar=True,
+    help="Lower bound in seconds for random selection of loop-length.",
+)
 @click.pass_context
 def hourly(
     ctx: "Context",
@@ -200,12 +227,20 @@ def hourly(
     hour: int | Literal["now", "random"],
     weather: str,
     location: str,
+    loop_length: int | Literal["random"],
+    ll_upper: int,
+    ll_lower: int,
 ) -> None:
     """
     Play seamlessly-looping hourly music.
     """
     force_cut = ctx.obj["force_cut"]
-    j = Jukebox(force_cut=force_cut)
+    j = Jukebox(
+        force_cut=force_cut,
+        loop_length=loop_length,
+        loop_upper_secs=ll_upper,
+        loop_lower_secs=ll_lower,
+    )
     try:
         asyncio.run(j.play_hourly(hour, game, weather, location))
     except KeyboardInterrupt:
