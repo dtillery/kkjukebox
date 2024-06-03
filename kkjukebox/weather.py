@@ -1,5 +1,5 @@
 import asyncio
-import logging as log
+import logging
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
@@ -26,6 +26,8 @@ KINDS_SNOW = [
     pw.Kind.LIGHT_SNOW_SHOWERS,
     pw.Kind.THUNDERY_SNOW_SHOWERS,
 ]
+
+log = logging.getLogger("kkjukebox")
 
 
 class Weather(StrEnum):

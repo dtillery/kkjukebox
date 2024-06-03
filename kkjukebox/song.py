@@ -1,5 +1,5 @@
 import datetime
-import logging as log
+import logging
 import os
 import random
 import re
@@ -18,6 +18,8 @@ except KeyError:
     raise RuntimeError(f"KKJUKEBOX_MUSIC_DIR must be set")
 
 ALLOWED_SONG_FILETYPES = [".mp3", ".ogg", ".wav"]
+
+log = logging.getLogger("kkjukebox")
 
 
 class Song:

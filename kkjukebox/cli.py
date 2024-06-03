@@ -16,7 +16,12 @@ if TYPE_CHECKING:
 
 
 def set_log_level(log_level: Optional[str]) -> None:
-    logging.basicConfig(level=log_level, format="[%(levelname)s:%(name)s] %(message)s")
+    logger = logging.getLogger("kkjukebox")
+    logger.setLevel(log_level or 60)
+    ch = logging.StreamHandler()
+    formatter = logging.Formatter("[%(levelname)s:%(name)s] %(message)s")
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
 
 
 def int_or_random(

@@ -1,6 +1,8 @@
-import logging as log
+import logging
 
 import geocoder  # type: ignore
+
+log = logging.getLogger("kkjukebox")
 
 
 def get_location() -> str:

@@ -4,7 +4,7 @@ os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
 
 import asyncio
 import datetime
-import logging as log
+import logging
 import random
 from time import monotonic
 from typing import TYPE_CHECKING, Literal, Optional
@@ -15,6 +15,8 @@ from .game import Game
 from .location import get_location
 from .song import HourlySong, KKSong, Song
 from .weather import Weather, get_weather
+
+log = logging.getLogger("kkjukebox")
 
 
 class Jukebox:
