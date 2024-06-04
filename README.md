@@ -15,6 +15,8 @@ pipx install git+ssh://git@github.com/dtillery/kkjukebox.git
 
 If you need to update, just use pipx's `reinstall` command.
 
+Finally, add configuration environment variables (if desired) to your startup scripts.
+
 ## Music Files
 You must provide your own music files for use by the app. The directory containing the music
 files must be laid out as follows:
