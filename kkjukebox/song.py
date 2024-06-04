@@ -15,7 +15,8 @@ from .weather import Weather
 try:
     MUSIC_DIR = os.environ["KKJUKEBOX_MUSIC_DIR"]
 except KeyError:
-    raise RuntimeError(f"KKJUKEBOX_MUSIC_DIR must be set")
+    # raise RuntimeError(f"KKJUKEBOX_MUSIC_DIR must be set")
+    MUSIC_DIR = ""
 
 ALLOWED_SONG_FILETYPES = [".mp3", ".ogg", ".wav"]
 
