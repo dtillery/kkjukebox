@@ -237,8 +237,6 @@ class Jukebox:
 
                 self.now_playing = next_song
                 log.info(f"Now Playing: {self.now_playing}!")
-                if self.now_playing.is_loopable:
-                    log.debug(f"Looping for: {self.now_playing_length} secs")
                 self.now_playing_start_time = monotonic()
                 pygame.mixer.music.play()
             elif self._time_for_next_song:

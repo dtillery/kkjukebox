@@ -19,7 +19,7 @@ def set_log_level(log_level: Optional[str]) -> None:
     logger = logging.getLogger("kkjukebox")
     logger.setLevel(log_level or 60)
     ch = logging.StreamHandler()
-    formatter = logging.Formatter("[%(levelname)s:%(name)s] %(message)s")
+    formatter = logging.Formatter("%(message)s")
     ch.setFormatter(formatter)
     logger.addHandler(ch)
 
@@ -97,33 +97,6 @@ def cli(
 
 @cli.command(cls=RichCommand)
 @option(
-    "--loop-length",
-    type=click.UNPROCESSED,
-    callback=int_or_random,
-    default="60",
-    show_default=True,
-    show_envvar=True,
-    help='How long in seconds a looping song should play before transitioning to the next. Can be an integer or "random"',
-)
-@option(
-    "--loop-length-upper-secs",
-    "ll_upper",
-    type=int,
-    default=120,
-    show_default=True,
-    show_envvar=True,
-    help="Upper bound in seconds for random selection of loop-length.",
-)
-@option(
-    "--loop-length-lower-secs",
-    "ll_lower",
-    type=int,
-    default=60,
-    show_default=True,
-    show_envvar=True,
-    help="Lower bound in seconds for random selection of loop-length.",
-)
-@option(
     "-v",
     "--version",
     "versions",
@@ -134,18 +107,45 @@ def cli(
     show_default=True,
     help="Song version to play. Can be specified multiple times.",
 )
+@option(
+    "--loop-length",
+    type=click.UNPROCESSED,
+    callback=int_or_random,
+    default="60",
+    show_default=True,
+    show_envvar=True,
+    help='How long in seconds a looping song should play before transitioning to the next. Can be an integer or "random". Only works with "aircheck" and "musicbox" versions.',
+)
+@option(
+    "--loop-length-upper-secs",
+    "ll_upper",
+    type=int,
+    default=120,
+    show_default=True,
+    show_envvar=True,
+    help="Upper bound in seconds for random selection of loop-length. Only applies to --loop-length songs.",
+)
+@option(
+    "--loop-length-lower-secs",
+    "ll_lower",
+    type=int,
+    default=60,
+    show_default=True,
+    show_envvar=True,
+    help="Lower bound in seconds for random selection of loop-length. Only applies to --loop-length songs.",
+)
 @argument("song_name", type=str, required=False, default=None)
 @click.pass_context
 def kk(
     ctx: "Context",
+    versions: list[str],
     loop_length: int | Literal["random"],
     ll_upper: int,
     ll_lower: int,
-    versions: list[str],
     song_name: Optional[str],
 ) -> None:
     """
-    Play music from KK Slider.
+    Play music from KK Slider, either a single SONG_NAME or randomizable version-setlists.
     """
     force_cut = ctx.obj["force_cut"]
     j = Jukebox(
