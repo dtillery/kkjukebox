@@ -3,7 +3,11 @@
 Play your favorite Animal Crossing tunes from the comfort of your cli.
 
 ## Install
-Install [pipx](https://pipx.pypa.io/stable/) via Homebrew. Then run:
+Install `ffmpeg` via Homebrew.
+
+Install [pipx](https://pipx.pypa.io/stable/) via Homebrew according to their directions.
+
+Then run:
 
 ```bash
 pipx install git+ssh://git@github.com/dtillery/kkjukebox.git
@@ -60,7 +64,7 @@ for silent-running.
 
 #### `--music-dir KKJUKEBOX_MUSIC_DIR` (text, required)
 The path to the directory containing the music files. The subdirectories must be laid
-out as detaileda above.
+out as detailed above.
 
 ### Hourly
 Use the `hourly` subcommand to play hourly music. This can be configured based on desired
