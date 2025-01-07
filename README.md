@@ -13,6 +13,8 @@ Then run:
 pipx install git+ssh://git@github.com/dtillery/kkjukebox.git
 ```
 
+**Currently incompatible with Python 3.13.0 and above.**
+
 If you need to update, just use pipx's `reinstall` command.
 
 Finally, add configuration environment variables (if desired) to your startup scripts.
