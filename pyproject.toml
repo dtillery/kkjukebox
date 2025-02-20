@@ -1,6 +1,6 @@
 [project]
 name = "kkjukebox"
-version = "0.6.0"
+version = "0.6.1"
 description = "I don't ask for much. A stool to sit on, a song to sing, and some folks gathered 'round to hear it."
 readme = "README.md"
 authors = [
@@ -9,11 +9,11 @@ authors = [
 requires-python = ">=3.12, <3.13"
 dependencies = [
     "click >=8.1.7, <9.0.0",
-    "pygame >=2.5.2, <3.0.0",
     "pydub >=0.25.1, <1.0.0",
     "geocoder >=1.38.1, <2.0.0",
     "python-weather >=2.0.3, <3.0.0",
     "rich-click >=1.8.2, <2.0.0",
+    "pygame-ce>=2.5.3",
 ]
 
 [project.scripts]

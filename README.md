@@ -233,5 +233,10 @@ export KKJUKEBOX_KK_LL_LOWER=60
 
 ```
 
+## TODO
+- [x] Migrate from pygame to pygame-ce
+- [ ] Use simpler audio library instead of pygame
+    - SDL_mixer?
+
 ## Thanks
 Thank you Nintendo, please don't sue me.
