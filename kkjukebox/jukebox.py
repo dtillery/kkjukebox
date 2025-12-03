@@ -67,7 +67,7 @@ class Jukebox:
         else:
             return self._loop_length
 
-    def _get_curr_location(self) -> str:
+    def _get_curr_location(self) -> str | None:
         return get_location()
 
     async def _get_curr_weather(self, location: str) -> "Weather":
@@ -151,7 +151,9 @@ class Jukebox:
                     log.debug(f"Random game is {curr_game}")
 
                 if self.localized_weather:
-                    curr_weather = await self._get_curr_weather(location)
+                    curr_weather = (
+                        await self._get_curr_weather(location) or Weather.SUNNY
+                    )
                 elif self.randomized_weather:
                     curr_weather = random.choice([w for w in Weather])
                     log.debug(f"Random weather is {curr_weather}")
