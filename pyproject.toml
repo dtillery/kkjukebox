@@ -1,6 +1,6 @@
 [project]
 name = "kkjukebox"
-version = "0.6.1"
+version = "0.6.2"
 description = "I don't ask for much. A stool to sit on, a song to sing, and some folks gathered 'round to hear it."
 readme = "README.md"
 authors = [
